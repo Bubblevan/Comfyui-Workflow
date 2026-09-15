@@ -1,0 +1,32 @@
+id: shot01_idle
+character: nun
+references:
+  - primary
+  - alternate
+  - face
+duration: 5
+
+action:
+  description: >
+    The character holds a calm standing pose, blinks once, makes a controlled
+    head turn, adjusts her collar, then returns to the initial composed stance.
+
+camera:
+  type: push_in
+  amplitude: small
+  speed: slow
+
+audio:
+  policy: silent
+
+generation:
+  explore:
+    megapixels: 0.5
+    steps: 4
+    turbo: true
+    takes: 4
+  keep:
+    megapixels: 0.75
+    steps: 8
+    turbo: true
+    takes: 1

@@ -1,16 +1,7 @@
 {
-  "project": "h3_character_motion_dataset",
-  "reference_pack": {
-    "character": "nun",
-    "assets": [
-      {"file": "assets/references/nun/nun_primary.png", "role": "identity_and_opening_composition"},
-      {"file": "assets/references/nun/nun_alternate.png", "role": "clothing_and_hair_structure"},
-      {"file": "assets/references/nun/nun_face.png", "role": "face_and_eye_detail"}
-    ]
-  },
+  "format": "deprecated-index",
+  "description": "Legacy index. Canonical shot definitions are independent YAML files under shots/.",
   "shots": [
-    {"id": "shot01_idle", "duration": 5, "status": "planned", "prompt": "prompts/nun/shot01_idle_en.txt", "explore": {"megapixels": 0.5, "steps": 4, "takes": 4}, "keep": {"megapixels": 0.75, "steps": 8, "takes": 1}},
-    {"id": "shot02_head_turn", "duration": 5, "status": "planned", "prompt": "prompts/nun/shot01_idle_en.txt", "explore": {"megapixels": 0.5, "steps": 4, "takes": 4}, "keep": {"megapixels": 0.75, "steps": 8, "takes": 1}},
-    {"id": "shot03_hand_gesture", "duration": 5, "status": "planned", "prompt": "prompts/nun/shot01_idle_en.txt", "explore": {"megapixels": 0.5, "steps": 4, "takes": 4}, "keep": {"megapixels": 0.75, "steps": 8, "takes": 1}}
+    {"id": "shot01_idle", "manifest": "shots/nun/shot01_idle.yaml", "status": "planned"}
   ]
 }

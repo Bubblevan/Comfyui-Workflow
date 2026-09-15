@@ -10,4 +10,4 @@
 - `vae/minimax_h3_audio_vae_fp32.safetensors`
 - `loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors`
 
-路径由 `ComfyUI/extra_model_paths.yaml` 管理，不应再指向仓库外模型目录。
+路径唯一由 `configs/extra_model_paths.yaml` 管理。启动脚本会验证该文件存在，并将其传给 ComfyUI；不要依赖仓库外的同名本地文件。

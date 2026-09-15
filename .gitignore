@@ -1,12 +1,13 @@
-outputs/*
-!outputs/README.md
 models/*
 !models/README.md
 runtime/*
 !runtime/README.md
 output/*
+!output/README.md
 temp/*
 logs/
+runs/*
+!runs/.gitkeep
 *.mp4
 *.webm
 *.mov
@@ -14,3 +15,5 @@ logs/
 *.flac
 __pycache__/
 *.pyc
+.pytest_cache/
+.pytest-tmp/

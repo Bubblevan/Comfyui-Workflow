@@ -1,4 +1,5 @@
 h3:
+  # Relative to this file: ../models resolves to the repository's models/ directory.
   base_path: ../models
   diffusion_models: models/diffusion_models
   text_encoders: models/text_encoders

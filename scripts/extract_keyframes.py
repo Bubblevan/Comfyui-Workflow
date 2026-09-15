@@ -1,148 +1,218 @@
-# -*- coding: utf-8 -*-
-"""从参考图生视频结果中筛选少量清晰关键帧，放入人工审核区。
+"""Three-stage keyframe screening for H3 synthetic videos.
 
-设计原则：视频帧默认不进入训练集；只有人工确认身份、服装和肢体都稳定后，
-才把文件复制到“审核通过”目录，再纳入人物动作增广集。
+Stage A checks corruption, blur, and brightness. Stage B uses dHash and SSIM
+to avoid near-duplicate candidates. Stage C is an advisory reference-similarity
+score only; it never promotes a frame into a dataset automatically.
 """
 
 from __future__ import annotations
 
-import argparse
 import csv
-import math
 from pathlib import Path
+from typing import Any
 
-import cv2
-import numpy as np
+try:
+    import cv2
+    import numpy as np
+except ImportError:  # pragma: no cover - video extraction needs the runtime bundle
+    cv2 = None
+    np = None
 
-
-视频后缀 = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
-
-
-def 清晰度分数(图像: np.ndarray) -> float:
-    灰度 = cv2.cvtColor(图像, cv2.COLOR_BGR2GRAY)
-    清晰度 = float(cv2.Laplacian(灰度, cv2.CV_64F).var())
-    亮度 = float(np.mean(灰度))
-    亮度惩罚 = 1.0
-    if 亮度 < 35 or 亮度 > 225:
-        亮度惩罚 = 0.65
-    return 清晰度 * 亮度惩罚
+VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
 
 
-def 小图(图像: np.ndarray) -> np.ndarray:
-    灰度 = cv2.cvtColor(图像, cv2.COLOR_BGR2GRAY)
-    return cv2.resize(灰度, (96, 96), interpolation=cv2.INTER_AREA).astype(np.float32)
+def _require_cv2() -> None:
+    if cv2 is None or np is None:
+        raise RuntimeError("extract requires OpenCV and NumPy; use runtime/python/python.exe")
 
 
-def 差异分数(左图: np.ndarray, 右图: np.ndarray) -> float:
-    return float(np.mean(np.abs(小图(左图) - 小图(右图))))
+def sharpness_score(image: Any) -> float:
+    _require_cv2()
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    value = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    brightness = float(np.mean(gray))
+    if brightness < 35 or brightness > 225:
+        value *= 0.65
+    return value
 
 
-def 写入中文路径(图像: np.ndarray, 路径: Path) -> bool:
-    """通过编码后写文件，绕过 Windows 下 OpenCV 对中文路径的限制。"""
-    成功, 缓冲区 = cv2.imencode(".png", 图像)
-    if not 成功:
-        return False
-    缓冲区.tofile(str(路径))
-    return 路径.exists() and 路径.stat().st_size > 0
+def _gray_small(image: Any, size: int = 32) -> Any:
+    _require_cv2()
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    return cv2.resize(gray, (size, size), interpolation=cv2.INTER_AREA)
 
 
-def 读取候选帧(视频路径: Path, 采样每秒: float) -> tuple[list[tuple[int, float, float, np.ndarray]], float, int, int]:
-    捕获 = cv2.VideoCapture(str(视频路径))
-    if not 捕获.isOpened():
-        return [], 0.0, 0, 0
+def dhash(image: Any, size: int = 16) -> Any:
+    small = _gray_small(image, size + 1)
+    return small[:, 1:] > small[:, :-1]
 
-    帧率 = float(捕获.get(cv2.CAP_PROP_FPS) or 24.0)
-    总帧数 = int(捕获.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-    宽度 = int(捕获.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
-    高度 = int(捕获.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
-    间隔 = max(1, int(round(帧率 / max(0.1, 采样每秒))))
-    候选 = []
-    帧号 = 0
+
+def dhash_similarity(left: Any, right: Any) -> float:
+    return 1.0 - float(np.mean(dhash(left) != dhash(right)))
+
+
+def ssim_similarity(left: Any, right: Any) -> float:
+    """Small dependency-free SSIM approximation over normalized grayscale frames."""
+    a = _gray_small(left, 64).astype(np.float32) / 255.0
+    b = _gray_small(right, 64).astype(np.float32) / 255.0
+    mean_a, mean_b = float(a.mean()), float(b.mean())
+    var_a, var_b = float(a.var()), float(b.var())
+    covariance = float(((a - mean_a) * (b - mean_b)).mean())
+    c1, c2 = 0.0001, 0.0009
+    return ((2 * mean_a * mean_b + c1) * (2 * covariance + c2)) / ((mean_a**2 + mean_b**2 + c1) * (var_a + var_b + c2))
+
+
+def duplicate_score(left: Any, right: Any) -> float:
+    return max(dhash_similarity(left, right), ssim_similarity(left, right))
+
+
+def filter_duplicate_candidates(candidates: list[dict[str, Any]], threshold: float = 0.92) -> list[dict[str, Any]]:
+    """Keep the sharpest temporally diverse candidates and annotate duplicate score."""
+    selected: list[dict[str, Any]] = []
+    for candidate in sorted(candidates, key=lambda item: item["sharpness"], reverse=True):
+        score = max((duplicate_score(candidate["image"], chosen["image"]) for chosen in selected), default=0.0)
+        candidate["duplicate_score"] = round(score, 5)
+        if score < threshold:
+            selected.append(candidate)
+    return sorted(selected, key=lambda item: item["frame"])
+
+
+def reference_similarity(image: Any, references: list[Any]) -> float | None:
+    """Advisory visual consistency score; semantic identity models remain optional."""
+    if not references:
+        return None
+    return round(max(dhash_similarity(image, ref) for ref in references), 5)
+
+
+def read_image(path: Path) -> Any:
+    _require_cv2()
+    buffer = np.fromfile(str(path), dtype=np.uint8)
+    return cv2.imdecode(buffer, cv2.IMREAD_COLOR)
+
+
+def write_png(image: Any, path: Path) -> None:
+    _require_cv2()
+    ok, buffer = cv2.imencode(".png", image)
+    if not ok:
+        raise OSError(f"could not encode frame: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    buffer.tofile(str(path))
+
+
+def read_video_candidates(video_path: Path, sample_rate: float = 3.0) -> tuple[list[dict[str, Any]], float, int, int]:
+    _require_cv2()
+    capture = cv2.VideoCapture(str(video_path))
+    if not capture.isOpened():
+        raise OSError(f"could not open video: {video_path}")
+    fps = float(capture.get(cv2.CAP_PROP_FPS) or 24.0)
+    width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+    height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+    interval = max(1, int(round(fps / max(0.1, sample_rate))))
+    candidates = []
+    frame_number = 0
     while True:
-        成功, 图像 = 捕获.read()
-        if not 成功:
+        ok, image = capture.read()
+        if not ok:
             break
-        if 帧号 % 间隔 == 0:
-            候选.append((帧号, 帧号 / 帧率, 清晰度分数(图像), 图像.copy()))
-        帧号 += 1
-    捕获.release()
-    return 候选, 帧率, 宽度, 高度
+        if frame_number % interval == 0 and image is not None and image.size and image.shape[0] > 8 and image.shape[1] > 8:
+            candidates.append({"frame": frame_number, "time": frame_number / fps, "sharpness": sharpness_score(image), "image": image.copy()})
+        frame_number += 1
+    capture.release()
+    return candidates, fps, width, height
 
 
-def 选择关键帧(候选: list[tuple[int, float, float, np.ndarray]], 保留数量: int) -> list[tuple[int, float, float, np.ndarray]]:
-    if not 候选:
+def _select_quality(candidates: list[dict[str, Any]], keep: int, minimum_sharpness: float) -> list[dict[str, Any]]:
+    quality = [item for item in candidates if item["sharpness"] >= minimum_sharpness]
+    if not quality:
         return []
-    数量 = min(max(1, 保留数量), len(候选))
-    # 先按时间分桶，避免五张图都来自动作中的同一瞬间。
-    分桶: list[list[tuple[int, float, float, np.ndarray]]] = [[] for _ in range(数量)]
-    for 序号, 项 in enumerate(候选):
-        分桶[min(数量 - 1, 序号 * 数量 // len(候选))].append(项)
-
-    选择 = []
-    for 桶 in 分桶:
-        桶.sort(key=lambda 项: 项[2], reverse=True)
-        for 项 in 桶:
-            if not 选择 or all(差异分数(项[3], 已选[3]) >= 5.0 for 已选 in 选择):
-                选择.append(项)
-                break
-    # 极短视频或相似动作可能导致某个桶没有合格帧，按清晰度补足。
-    if len(选择) < 数量:
-        for 项 in sorted(候选, key=lambda 项: 项[2], reverse=True):
-            if 项 in 选择:
-                continue
-            if all(差异分数(项[3], 已选[3]) >= 3.0 for 已选 in 选择):
-                选择.append(项)
-            if len(选择) == 数量:
-                break
-    return sorted(选择[:数量], key=lambda 项: 项[0])
+    return filter_duplicate_candidates(quality)[: max(1, keep)]
 
 
-def 主程序() -> None:
-    根目录 = Path(__file__).resolve().parents[1]
-    参数 = argparse.ArgumentParser(description="筛选参考图生视频结果中的清晰关键帧")
-    参数.add_argument("--视频目录", type=Path, default=根目录 / "视频扩充数据" / "原视频")
-    参数.add_argument("--输出目录", type=Path, default=根目录 / "视频扩充数据" / "待审核关键帧")
-    参数.add_argument("--每秒候选数", type=float, default=3.0)
-    参数.add_argument("--每段保留数", type=int, default=5)
-    参数.add_argument("--角色", type=str, default="未分类")
-    参数.add_argument("--最小清晰度", type=float, default=35.0)
-    选项 = 参数.parse_args()
+def _resolve_video(root: Path, relative: str) -> Path:
+    path = (root / relative).resolve()
+    try:
+        path.relative_to((root / "output").resolve())
+    except ValueError as exc:
+        raise OSError(f"output video is outside output/: {relative}") from exc
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    return path
 
-    视频文件 = sorted(p for p in 选项.视频目录.rglob("*") if p.is_file() and p.suffix.lower() in 视频后缀)
-    输出目录 = 选项.输出目录 / 选项.角色
-    输出目录.mkdir(parents=True, exist_ok=True)
-    清单路径 = 输出目录 / "关键帧审核清单.csv"
-    清单 = []
 
-    for 视频 in 视频文件:
-        候选, 帧率, 宽度, 高度 = 读取候选帧(视频, 选项.每秒候选数)
-        关键帧 = [项 for 项 in 选择关键帧(候选, 选项.每段保留数) if 项[2] >= 选项.最小清晰度]
-        for 输出序号, (帧号, 时间秒, 分数, 图像) in enumerate(关键帧, 1):
-            文件名 = f"{视频.stem}_关键帧_{输出序号:02d}.png"
-            输出路径 = 输出目录 / 文件名
-            if not 写入中文路径(图像, 输出路径):
-                continue
-            清单.append({
-                "角色": 选项.角色,
-                "视频文件": 视频.name,
-                "关键帧文件": 文件名,
-                "帧序号": 帧号,
-                "时间秒": f"{时间秒:.3f}",
-                "清晰度分数": f"{分数:.2f}",
-                "宽度": 宽度,
-                "高度": 高度,
-                "状态": "待人工审核",
+def create_contact_sheet(root: Path, run_id: str, references: list[Path], candidates: list[dict[str, Any]]) -> Path:
+    _require_cv2()
+    qc_dir = root / "output" / "qc" / run_id
+    qc_dir.mkdir(parents=True, exist_ok=True)
+    columns, cell_w, cell_h = 3, 360, 245
+    rows = max(1, (len(references) + len(candidates) + columns - 1) // columns)
+    sheet = np.full((rows * cell_h, columns * cell_w, 3), 245, dtype=np.uint8)
+    items: list[tuple[str, Any, str]] = []
+    for index, path in enumerate(references, 1):
+        image = read_image(path) if path.is_file() else None
+        items.append((f"Reference {index}", image, path.name))
+    for candidate in candidates:
+        items.append((candidate["path"].stem, candidate["image"], f"t={candidate['time']:.3f}s sharp={candidate['sharpness']:.1f} dup={candidate.get('duplicate_score', 0):.3f}"))
+    for index, (_, image, caption) in enumerate(items):
+        if image is None:
+            continue
+        row, col = divmod(index, columns)
+        thumb = image.copy()
+        scale = min((cell_w - 20) / thumb.shape[1], (cell_h - 65) / thumb.shape[0])
+        thumb = cv2.resize(thumb, (max(1, int(thumb.shape[1] * scale)), max(1, int(thumb.shape[0] * scale))))
+        y, x = row * cell_h + 10, col * cell_w + 10
+        sheet[y:y + thumb.shape[0], x:x + thumb.shape[1]] = thumb
+        cv2.putText(sheet, caption[:52], (x, row * cell_h + cell_h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (20, 20, 20), 1, cv2.LINE_AA)
+    output = qc_dir / "contact_sheet.jpg"
+    cv2.imwrite(str(output), sheet, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
+    return output
+
+
+def extract_run(root: Path, run: dict[str, Any], sample_rate: float = 3.0, keep_per_video: int = 5, minimum_sharpness: float = 35.0) -> list[Path]:
+    run_id = run["run_id"]
+    videos = [_resolve_video(root, item) for item in run.get("output_video", [])]
+    if not videos:
+        raise OSError("run has no completed output_video; extract only completed runs")
+    pending_dir = root / "output" / "frames" / "pending" / run_id
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    reference_paths = [root / item["file"] for item in run.get("references", [])]
+    reference_images = [read_image(path) for path in reference_paths if path.is_file()]
+    all_rows: list[dict[str, Any]] = []
+    output_paths: list[Path] = []
+    sequence = 0
+    for video in videos:
+        candidates, _, width, height = read_video_candidates(video, sample_rate)
+        selected = _select_quality(candidates, keep_per_video, minimum_sharpness)
+        for candidate in selected:
+            sequence += 1
+            frame_name = f"frame_{sequence:03d}.png"
+            frame_path = pending_dir / frame_name
+            write_png(candidate["image"], frame_path)
+            candidate["path"] = frame_path
+            candidate["identity_similarity"] = reference_similarity(candidate["image"], reference_images)
+            output_paths.append(frame_path)
+            all_rows.append({
+                "frame": frame_name,
+                "source_video": video.relative_to(root).as_posix(),
+                "frame_number": candidate["frame"],
+                "time": f"{candidate['time']:.3f}",
+                "sharpness": f"{candidate['sharpness']:.3f}",
+                "duplicate_score": f"{candidate.get('duplicate_score', 0):.5f}",
+                "identity_similarity": "" if candidate["identity_similarity"] is None else f"{candidate['identity_similarity']:.5f}",
+                "width": width,
+                "height": height,
+                "status": "pending_manual_review",
             })
-        print(f"{视频.name}: 候选 {len(候选)}，入审核区 {len(关键帧)}")
-
-    with 清单路径.open("w", encoding="utf-8-sig", newline="") as 文件:
-        字段 = ["角色", "视频文件", "关键帧文件", "帧序号", "时间秒", "清晰度分数", "宽度", "高度", "状态"]
-        写入器 = csv.DictWriter(文件, fieldnames=字段)
-        写入器.writeheader()
-        写入器.writerows(清单)
-    print(f"共生成 {len(清单)} 张待审核关键帧：{清单路径}")
+    csv_path = pending_dir / "frames.csv"
+    with csv_path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(all_rows[0]) if all_rows else ["frame", "status"])
+        writer.writeheader()
+        writer.writerows(all_rows)
+    contact_candidates = []
+    for row, path in zip(all_rows, output_paths):
+        contact_candidates.append({"path": path, "image": read_image(path), "time": float(row["time"]), "sharpness": float(row["sharpness"]), "duplicate_score": float(row["duplicate_score"])})
+    create_contact_sheet(root, run_id, reference_paths, contact_candidates)
+    return output_paths
 
 
 if __name__ == "__main__":
-    主程序()
+    raise SystemExit("Use python scripts/h3.py extract RUN_ID")

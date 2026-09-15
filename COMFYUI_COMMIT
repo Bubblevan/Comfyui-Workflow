@@ -1,0 +1,5 @@
+unknown
+
+The vendored ComfyUI tree was imported without its upstream .git metadata.
+Before production pinning, record the exact upstream commit here and keep
+Harness changes outside ComfyUI/.

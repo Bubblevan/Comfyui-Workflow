@@ -17,9 +17,10 @@ $inputDir = Join-Path $RepoRoot 'input'
 $outputDir = Join-Path $RepoRoot 'output'
 $tempDir = Join-Path $RepoRoot 'temp'
 $logDir = Join-Path $RepoRoot 'logs'
-$modelConfig = Join-Path $comfyRoot 'extra_model_paths.yaml'
-foreach ($dir in @($inputDir,$outputDir,$tempDir,$logDir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+$modelConfig = Join-Path $RepoRoot 'configs\extra_model_paths.yaml'
+foreach ($dir in @($inputDir,(Join-Path $outputDir 'video'),(Join-Path $outputDir 'frames\pending'),(Join-Path $outputDir 'frames\accepted'),(Join-Path $outputDir 'frames\rejected'),(Join-Path $outputDir 'qc'),$tempDir,$logDir,(Join-Path $RepoRoot 'runs'))) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
 if (-not (Test-Path -LiteralPath (Join-Path $comfyRoot 'main.py'))) { throw "找不到 ComfyUI：$comfyRoot" }
+if (-not (Test-Path -LiteralPath $modelConfig)) { throw "找不到模型路径配置：$modelConfig" }
 
 if ([string]::IsNullOrWhiteSpace($PythonPath)) {
     $localPython = Join-Path $RepoRoot 'runtime\python\python.exe'
