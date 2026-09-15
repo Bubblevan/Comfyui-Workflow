@@ -1,15 +1,42 @@
 # H3 runtime ablation
 
-测试固定为 `shots/nun/shot01_idle.yaml`、seed `424242`、`explore`（0.5 MP、Turbo、4 steps），只切换 attention backend。计时是从向 ComfyUI `/prompt` 提交到视频输出完成，包含真实队列和执行路径。
+## 结算口径
 
-在当前 Windows Ada/SM89 测试机（Torch `2.10.0+cu130`，识别名为 RTX 4090 Laptop GPU）上，连续 warm run 的结果为：
+本轮以 `shots/nun/shot01_idle.yaml` 的 `keep` profile 为准：5 秒输出、0.75 MP、Turbo、8 steps、seed `424243`，实际视频为 1184×672、24 fps、5.167 秒。计时从向 ComfyUI `/prompt` 提交开始，到包含 VAE、音频和 MP4 输出在内的 `/history` 完成为止；不是单次模型 forward，也不是首帧时间。
 
-| backend | warm run | 相对 PyTorch |
-| --- | ---: | ---: |
-| Comfy Kitchen（主干默认） | 4.032 s | 33.40% faster |
-| SageAttention | 4.106 / 4.071 s（均值 4.088 s） | 32.47% faster |
-| PyTorch attention | 6.054 s | baseline |
+机器实际识别为 NVIDIA GeForce RTX 4090 Laptop GPU（Ada/SM89，16 GB）；因此结果可作为 4090D 类 Ada 卡的参考，但不能冒充物理 4090D 实测。
 
-首次切换 backend 会触发模型重新准备/编译，记录为 Kitchen `88.921 s`、Sage `90.522 s`、PyTorch `138.870 s`；它们不是 steady-state 吞吐。完整原始报告：[`h3-runtime-ablation-20260916-031055.json`](h3-runtime-ablation-20260916-031055.json) 和 [`h3-runtime-ablation-20260916-031031.json`](h3-runtime-ablation-20260916-031031.json)。
+| variant | 状态 | E2E 秒 | 相对冷基线 303.640s | 说明 |
+| --- | --- | ---: | ---: | --- |
+| mainline / Kitchen | completed | **303.090** | 0.18% faster | 精确主干，约 5m03s |
+| SageAttention `auto` | completed | **292.167** | **3.60% faster** | 可用，但未超过 Kitchen |
+| SageAttention explicit CUDA | completed | **314.408** | 3.74% slower | 修复 Triton cache 权限后可运行，但更慢 |
+| SageAttention `allow_compile` | completed | **320.432** | 5.72% slower | 可运行，但 compile 首跑和本次 E2E 均更慢 |
+| TeaCache | completed | **228.076** | **24.89% faster** | 独立冷进程；当前速度优先候选，近似轨迹 |
+| Spectrum | completed | **251.688** | **17.11% faster** | 独立冷进程；可运行，近似偏差高于 TeaCache |
+| AGSoft Balanced cache | completed | **300.722** | 0.78% faster | 测量噪声范围，无实际收益 |
+| FastPath | failed | 64.465 | — | `aimdo memory compile error` |
+| Speed Cache | failed | 98.792 | — | `FinalLayer.forward()` 缺少 `sigma/sample_sigmas/shifts` 参数 |
 
-结论：Sage 在这台 Ada/SM89 环境能正常执行，并显著快于纯 PyTorch；但它没有超过主干 Kitchen，因此主干默认保持 Kitchen，Sage 作为可追溯的单 shot 消融后端。实际 4090D 仍应按同一命令复测一次。
+主干 baseline 另有一次全新进程测得 303.640s；与 303.090s 的差异为 0.18%，说明 keep 基线稳定。TeaCache/Spectrum 的最终数字也取各自独立冷进程；此前同一进程切换后得到的 193.906s/200.133s 不纳入结算。之前的 4–6 秒数据属于 explore 的 0.5 MP/4 steps warm/切换后测量，不能代表 5 秒 keep 视频，本报告不再将其与本表混用。
+
+## 结论与标准
+
+* 精确质量标准：保持 Kitchen + `euler` + `simple` + H3 shift `12/3`，作为回归和质量基准。
+* 速度标准：若接受近似加速，首选 TeaCache（约 3m48s）；Spectrum 作为第二候选（约 4m12s）。两者都必须用固定 seed 做人工 A/B，不能声称无损。
+* SageAttention 已完成 Windows 适配；本机 SM89 上 `auto` 会选择 SageAttention2++ 的 FP8 CUDA 路径，只比 Kitchen 快约 11 秒，explicit FP16 CUDA 和 `allow_compile` 反而慢，因此不替换 Kitchen 默认。
+* AGSoft、FastPath、Speed Cache 不进入默认生产 graph。尤其 Speed Cache 是进程级 patch，且当前 H3 `FinalLayer` ABI 不兼容；不要与 TeaCache/Spectrum 串联。
+
+## 可复现命令
+
+```powershell
+# 每次只跑一个 variant，并在下一项前退出/重启 ComfyUI
+python scripts/benchmark_h3_runtime.py shots/nun/shot01_idle.yaml `
+  --api-url http://127.0.0.1:8198 --profile keep --seed 424243 `
+  --variants teacache
+```
+
+结果 JSON 会记录 variant、runtime、sampler、scheduler、节点类型、E2E 秒数和失败原因。
+逐 variant 独立启动时，应分别指定不同端口，或在下一项前完整退出 ComfyUI。
+
+原始完成视频和 JSON 报告保留在本机 `output/video/` 与 `benchmarks/`；视频属于消融证据，不能直接晋级训练集，仍需经过 `h3.py extract/qc` 和人工审核。

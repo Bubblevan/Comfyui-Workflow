@@ -1,0 +1,104 @@
+{
+  "shot": "shots/nun/shot01_idle.yaml",
+  "profile": "keep",
+  "seed": 424243,
+  "duration_seconds": 5,
+  "megapixels": 0.75,
+  "steps": 8,
+  "measurement": "wall_clock_seconds_from_prompt_submission_to_completed_output",
+  "output": {
+    "resolution": "1184x672",
+    "fps": 24,
+    "encoded_duration_seconds": 5.167,
+    "frames": 124
+  },
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 4090 Laptop GPU",
+    "architecture": "Ada SM89",
+    "vram_mb": 16376,
+    "torch": "2.10.0+cu130",
+    "comfyui": "0.35.1",
+    "python": "3.13.11"
+  },
+  "baseline_repeat_seconds": [303.09, 303.64],
+  "comparison_baseline_seconds": 303.64,
+  "variants": [
+    {
+      "variant": "mainline",
+      "status": "completed",
+      "e2e_seconds": 303.09,
+      "speedup_vs_cold_baseline": 0.00181,
+      "runtime": "Kitchen; euler; simple; H3 shift 12/3",
+      "output_video": "output/video/bench-20260916-033516-shot01_idle_free_3q_front-keep-mainline-424243-94725f_00001_.mp4"
+    },
+    {
+      "variant": "sage",
+      "status": "completed",
+      "e2e_seconds": 292.167,
+      "speedup_vs_cold_baseline": 0.03778,
+      "runtime": "SageAttention auto (SM89 FP8 CUDA dispatch)",
+      "output_video": "output/video/bench-20260916-034019-shot01_idle_free_3q_front-keep-sage-424243-2964fb_00001_.mp4"
+    },
+    {
+      "variant": "sage_cuda",
+      "status": "completed",
+      "e2e_seconds": 314.408,
+      "speedup_vs_cold_baseline": -0.03546,
+      "runtime": "SageAttention explicit FP16 CUDA",
+      "output_video": "output/video/bench-20260916-040837-shot01_idle_free_3q_front-keep-sage_cuda-424243-518e7c_00001_.mp4",
+      "mean_abs_pixel_error_vs_mainline": 9.2
+    },
+    {
+      "variant": "sage_compile",
+      "status": "completed",
+      "e2e_seconds": 320.432,
+      "speedup_vs_cold_baseline": -0.0553,
+      "runtime": "SageAttention auto; allow_compile true"
+    },
+    {
+      "variant": "teacache",
+      "status": "completed",
+      "e2e_seconds": 228.076,
+      "speedup_vs_cold_baseline": 0.24886,
+      "runtime": "TeaCache default rel_l1_thresh 0.15",
+      "output_video": "output/video/bench-20260916-042916-shot01_idle_free_3q_front-keep-teacache-424243-dc8bde_00001_.mp4",
+      "mean_abs_pixel_error_vs_mainline": 8.892
+    },
+    {
+      "variant": "spectrum",
+      "status": "completed",
+      "e2e_seconds": 251.688,
+      "speedup_vs_cold_baseline": 0.1711,
+      "runtime": "Spectrum default balanced forecast",
+      "output_video": "output/video/bench-20260916-043350-shot01_idle_free_3q_front-keep-spectrum-424243-9da3ad_00001_.mp4",
+      "mean_abs_pixel_error_vs_mainline": 17.446
+    },
+    {
+      "variant": "agsoft_cache",
+      "status": "completed",
+      "e2e_seconds": 300.722,
+      "speedup_vs_cold_baseline": 0.00961,
+      "runtime": "AGSoft Balanced cache",
+      "output_video": "output/video/bench-20260916-035851-shot01_idle_free_3q_front-keep-agsoft_cache-424243-c2318c_00001_.mp4",
+      "mean_abs_pixel_error_vs_mainline": 6.92
+    },
+    {
+      "variant": "fastpath",
+      "status": "failed",
+      "e2e_seconds": 64.465,
+      "error": "SamplerCustomAdvanced: aimdo memory compile error"
+    },
+    {
+      "variant": "speed_cache",
+      "status": "failed",
+      "e2e_seconds": 98.792,
+      "error": "SamplerCustomAdvanced: FinalLayer.forward() missing sigma, sample_sigmas, and shifts"
+    }
+  ],
+  "decision": {
+    "exact_quality_standard": "mainline Kitchen",
+    "speed_priority_candidate": "teacache",
+      "speed_priority_seconds": 228.076,
+    "quality_metric_note": "mean_abs_pixel_error is a numerical A/B probe, not a perceptual quality score; manual review remains required."
+  }
+}

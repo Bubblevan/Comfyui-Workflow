@@ -32,6 +32,10 @@ if ([string]::IsNullOrWhiteSpace($PythonPath) -or -not (Test-Path -LiteralPath $
 
 $sitePackages = Join-Path $RepoRoot 'runtime\venv\Lib\site-packages'
 $env:PYTHONPATH = if (Test-Path -LiteralPath $sitePackages) { "$sitePackages;$comfyRoot" } else { $comfyRoot }
+# Some Windows custom nodes print Unicode status markers during import.  Keep
+# the ComfyUI process on UTF-8 so an unrelated console code page cannot disable
+# a node pack during startup.
+$env:PYTHONUTF8 = '1'
 
 # Triton's Windows bootstrap otherwise sees the system CUDA 12.5 / StrawberryPerl
 # toolchain before the bundled runtime.  Point it at the same Triton assets that
@@ -39,6 +43,9 @@ $env:PYTHONPATH = if (Test-Path -LiteralPath $sitePackages) { "$sitePackages;$co
 $tritonRoot = Join-Path $sitePackages 'triton'
 $tritonCompiler = Join-Path $tritonRoot 'runtime\tcc\tcc.exe'
 $tritonCuda = Join-Path $tritonRoot 'backends\nvidia'
+$tritonCache = Join-Path $RepoRoot 'temp\triton-cache'
+New-Item -ItemType Directory -Force -Path $tritonCache | Out-Null
+$env:TRITON_CACHE_DIR = $tritonCache
 if ((Test-Path -LiteralPath $tritonCompiler) -and (Test-Path -LiteralPath (Join-Path $tritonCuda 'lib\x64\cuda.lib'))) {
     $env:CC = $tritonCompiler
     $env:CUDA_PATH = $tritonCuda

@@ -45,6 +45,9 @@ DEFAULT_RUNTIME: dict[str, Any] = {
     # Cache nodes are retained as an explicit experiment because the reference
     # workflow bypasses them and cache thresholds can trade quality for speed.
     "cache": {"enabled": False},
+    # Approximate H3 accelerators are mutually exclusive and opt-in.  Keeping
+    # this separate from the legacy AGSoft cache makes A/B manifests explicit.
+    "approximation": {"method": "none"},
 }
 
 
@@ -373,7 +376,7 @@ def effective_runtime(overrides: dict[str, Any] | None = None) -> dict[str, Any]
     return result
 
 
-def _apply_runtime_profile(graph: dict[str, Any], contract: dict[str, Any], runtime: dict[str, Any] | None) -> dict[str, Any]:
+def _apply_runtime_profile(graph: dict[str, Any], contract: dict[str, Any], runtime: dict[str, Any] | None, steps: int | None = None) -> dict[str, Any]:
     """Apply the canonical H3 runtime and any explicit shot-level overrides.
 
     Positive reference-workflow defaults are inserted for every graph. Experimental
@@ -441,6 +444,12 @@ def _apply_runtime_profile(graph: dict[str, Any], contract: dict[str, Any], runt
         raise HarnessError(f"unsupported attention backend: {backend}")
 
     cache = runtime.get("cache") or {}
+    approximation = runtime.get("approximation") or {}
+    approximation_method = approximation.get("method", "none")
+    if approximation_method not in {"none", "teacache", "spectrum", "speed_cache", "fastpath"}:
+        raise HarnessError(f"unsupported approximation method: {approximation_method}")
+    if approximation_method != "none" and cache.get("enabled"):
+        raise HarnessError("cache.enabled and approximation.method cannot be enabled together; use one cache/forecast method")
     if cache.get("enabled"):
         current_model = _add_model_patch(
             graph,
@@ -462,6 +471,96 @@ def _apply_runtime_profile(graph: dict[str, Any], contract: dict[str, Any], runt
             },
         )
 
+    if approximation_method != "none":
+        settings = approximation.get(approximation_method) or {}
+        if approximation_method == "teacache":
+            current_model = _add_model_patch(
+                graph,
+                used,
+                "MiniMaxH3TeaCache",
+                {
+                    "model": [current_model, 0],
+                    "rel_l1_thresh": float(settings.get("rel_l1_thresh", 0.15)),
+                    "start_step": int(settings.get("start_step", 2)),
+                    "end_step": int(settings.get("end_step", -2)),
+                    "total_steps": int(steps or settings.get("total_steps", 20)),
+                },
+            )
+        elif approximation_method == "spectrum":
+            current_model = _add_model_patch(
+                graph,
+                used,
+                "SpectrumApplyMiniMaxH3",
+                {
+                    "model": [current_model, 0],
+                    "enabled": bool(settings.get("enabled", True)),
+                    "blend_weight": float(settings.get("blend_weight", 0.50)),
+                    "degree": int(settings.get("degree", 1)),
+                    "ridge_lambda": float(settings.get("ridge_lambda", 0.10)),
+                    "window_size": float(settings.get("window_size", 2.0)),
+                    "flex_window": float(settings.get("flex_window", 0.75)),
+                    "warmup_steps": int(settings.get("warmup_steps", 1)),
+                    "tail_actual_steps": int(settings.get("tail_actual_steps", 1)),
+                    "max_history": int(settings.get("max_history", 8)),
+                    "debug": bool(settings.get("debug", False)),
+                    "history_storage": settings.get("history_storage", "system_ram"),
+                    "bootstrap_first_forecast": bool(settings.get("bootstrap_first_forecast", True)),
+                    "anchor_residual_feedback": bool(settings.get("anchor_residual_feedback", False)),
+                    "selective_rollback_correction": bool(settings.get("selective_rollback_correction", False)),
+                    "offline_smoothing_replay": bool(settings.get("offline_smoothing_replay", True)),
+                    "audio_blend_weight": float(settings.get("audio_blend_weight", 0.0)),
+                    "offline_archive_storage": settings.get("offline_archive_storage", "system_ram"),
+                    "model_aware_mode": settings.get("model_aware_mode", "off"),
+                    "model_aware_risk_threshold": float(settings.get("model_aware_risk_threshold", 0.65)),
+                    "model_aware_trust_shrinkage": bool(settings.get("model_aware_trust_shrinkage", False)),
+                    "model_aware_replay_generic_correction": bool(settings.get("model_aware_replay_generic_correction", False)),
+                    "generic_correction_mode": settings.get("generic_correction_mode", "coordinate_rls"),
+                    "generic_correction_limiter": settings.get("generic_correction_limiter", "hard_clip"),
+                    "generic_correction_limit": float(settings.get("generic_correction_limit", 0.40)),
+                    "generic_correction_attenuation": settings.get("generic_correction_attenuation", "no_attenuation"),
+                    "sa_pece_forecast_policy": settings.get("sa_pece_forecast_policy", "balanced"),
+                },
+            )
+        elif approximation_method == "speed_cache":
+            current_model = _add_model_patch(
+                graph,
+                used,
+                "MiniMaxH3SpeedCache",
+                {
+                    "model": [current_model, 0],
+                    "reuse_threshold": float(settings.get("reuse_threshold", 0.12)),
+                    "start_percent": float(settings.get("start_percent", 0.10)),
+                    "end_percent": float(settings.get("end_percent", 0.90)),
+                    "max_consecutive_skips": int(settings.get("max_consecutive_skips", 2)),
+                    "cache_device": settings.get("cache_device", "auto"),
+                    "vram_reserve_gb": float(settings.get("vram_reserve_gb", 2.0)),
+                    "ram_reserve_gb": float(settings.get("ram_reserve_gb", 4.0)),
+                    "signature_tokens": int(settings.get("signature_tokens", 128)),
+                    "signature_features": int(settings.get("signature_features", 64)),
+                    "verbose": bool(settings.get("verbose", False)),
+                    "sage_attention": settings.get("sage_attention", "auto"),
+                },
+            )
+        elif approximation_method == "fastpath":
+            current_model = _add_model_patch(
+                graph,
+                used,
+                "MiniMaxH3EulerMiddleCache",
+                {
+                    "model": [current_model, 0],
+                    "enabled": bool(settings.get("enabled", True)),
+                    "prefix_blocks": int(settings.get("prefix_blocks", 8)),
+                    "suffix_blocks": int(settings.get("suffix_blocks", 8)),
+                    "reuse_threshold": float(settings.get("reuse_threshold", 0.12)),
+                    "max_consecutive_reuses": int(settings.get("max_consecutive_reuses", 1)),
+                    "cache_device": settings.get("cache_device", "gpu"),
+                    "require_fastpath_schedule": bool(settings.get("require_fastpath_schedule", False)),
+                    "strict_branch_identity": bool(settings.get("strict_branch_identity", True)),
+                    "suppress_candidate_prefetch": bool(settings.get("suppress_candidate_prefetch", True)),
+                    "verbose": bool(settings.get("verbose", False)),
+                },
+            )
+
     if current_model != "127":
         graph["145"]["inputs"]["model"] = [current_model, 0]
         graph["141"]["inputs"]["on_false"] = [current_model, 0]
@@ -472,7 +571,7 @@ def build_graph(prompt: str, references: list[dict[str, Any]], profile: dict[str
     graph = json.loads(WORKFLOW_PATH.read_text(encoding="utf-8"))
     validate_workflow_contract(graph)
     contract = load_contract()
-    runtime = _apply_runtime_profile(graph, contract, runtime)
+    runtime = _apply_runtime_profile(graph, contract, runtime, int(profile.get("steps", 20)))
     graph[contract["megapixels"]]["inputs"]["megapixels"] = profile["megapixels"]
     graph[contract["seed"]]["inputs"]["noise_seed"] = int(seed)
     graph[contract["duration"]]["inputs"]["value"] = duration

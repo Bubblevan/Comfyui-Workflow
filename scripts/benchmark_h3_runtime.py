@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 import time
 import uuid
@@ -26,7 +27,35 @@ VARIANT_OVERRIDES: dict[str, dict[str, Any]] = {
     "mainline": {},
     "pytorch": {"attention": {"backend": "default"}},
     "sage": {"attention": {"backend": "sage", "sage_attention": "auto", "allow_compile": False}},
+    "sage_cuda": {"attention": {"backend": "sage", "sage_attention": "sageattn_qk_int8_pv_fp16_cuda", "allow_compile": False}},
+    "sage_triton": {"attention": {"backend": "sage", "sage_attention": "sageattn_qk_int8_pv_fp16_triton", "allow_compile": False}},
+    "sage_compile": {"attention": {"backend": "sage", "sage_attention": "auto", "allow_compile": True}},
+    "teacache": {"approximation": {"method": "teacache"}},
+    "spectrum": {"approximation": {"method": "spectrum"}},
+    "speed_cache": {
+        "attention": {"backend": "default"},
+        "approximation": {"method": "speed_cache", "speed_cache": {"sage_attention": "enabled"}},
+    },
+    "speed_cache_kitchen": {
+        "approximation": {"method": "speed_cache", "speed_cache": {"sage_attention": "disabled"}},
+    },
+    "fastpath": {"approximation": {"method": "fastpath"}},
+    "agsoft_cache": {"cache": {"enabled": True, "profile": "Balanced"}},
 }
+
+
+def _short_error(error: Exception) -> str:
+    """Keep ComfyUI traceback payloads readable in the durable JSON report."""
+    message = str(error)
+    try:
+        payload = json.loads(message)
+        for item in payload.get("messages", []):
+            if isinstance(item, list) and len(item) > 1 and item[0] == "execution_error":
+                details = item[1]
+                return f"{details.get('node_type')}: {details.get('exception_message')}"
+    except (TypeError, ValueError, json.JSONDecodeError):
+        pass
+    return message if len(message) <= 600 else message[:597] + "..."
 
 
 def _load_case(shot_path: Path, profile_name: str) -> tuple[dict[str, Any], dict[str, Any], Path, list[dict[str, Any]], dict[str, Any], str]:
@@ -77,7 +106,7 @@ def run_variant(shot_path: Path, profile_name: str, seed: int, api_url: str, tim
         wait_seconds = None
         output_paths = []
         status = "failed"
-        error = str(exc)
+        error = _short_error(exc)
 
     classes = [node.get("class_type") for node in graph.values() if isinstance(node, dict)]
     result: dict[str, Any] = {
@@ -96,6 +125,10 @@ def run_variant(shot_path: Path, profile_name: str, seed: int, api_url: str, tim
             "PathchSageAttentionKJ": classes.count("PathchSageAttentionKJ"),
             "MiniMaxH3MemoryEfficientSageAttentionPatch": classes.count("MiniMaxH3MemoryEfficientSageAttentionPatch"),
             "AGSoftMiniMaxH3Cache": classes.count("AGSoftMiniMaxH3Cache"),
+            "MiniMaxH3TeaCache": classes.count("MiniMaxH3TeaCache"),
+            "SpectrumApplyMiniMaxH3": classes.count("SpectrumApplyMiniMaxH3"),
+            "MiniMaxH3SpeedCache": classes.count("MiniMaxH3SpeedCache"),
+            "MiniMaxH3EulerMiddleCache": classes.count("MiniMaxH3EulerMiddleCache"),
         },
         "elapsed_seconds": round(time.monotonic() - started, 3),
         "wait_seconds": None if wait_seconds is None else round(wait_seconds, 3),
@@ -119,6 +152,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if len(args.variants) > 1 and {"speed_cache", "speed_cache_kitchen"}.intersection(args.variants):
+        raise SystemExit("speed_cache is process-global; run it as the only variant in a fresh ComfyUI process")
     shot_path = (ROOT / args.shot).resolve()
     report_path = args.output or ROOT / "benchmarks" / f"h3-runtime-ablation-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
     report: dict[str, Any] = {
@@ -126,6 +161,9 @@ def main(argv: list[str] | None = None) -> int:
         "api_url": args.api_url,
         "profile": args.profile,
         "seed": args.seed,
+        "measurement": "wall_clock_seconds_from_prompt_submission_to_completed_output",
+        "host": platform.node(),
+        "platform": platform.platform(),
         "variants": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -134,6 +172,18 @@ def main(argv: list[str] | None = None) -> int:
         result = run_variant(shot_path, args.profile, args.seed, args.api_url, args.timeout, variant)
         report["variants"].append(result)
         print(json.dumps(result, ensure_ascii=False), flush=True)
+    baseline = next(
+        (item for item in report["variants"] if item["variant"] == "mainline" and item["status"] == "completed"),
+        None,
+    )
+    if baseline:
+        baseline_seconds = float(baseline["elapsed_seconds"])
+        for item in report["variants"]:
+            if item["status"] == "completed":
+                item["speedup_vs_mainline"] = round(
+                    (baseline_seconds - float(item["elapsed_seconds"])) / baseline_seconds,
+                    5,
+                )
     h3.write_json(report_path, report)
     print(f"report: {report_path.relative_to(ROOT).as_posix()}")
     return 0 if all(item["status"] == "completed" for item in report["variants"]) else 2

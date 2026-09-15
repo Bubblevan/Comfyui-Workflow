@@ -66,7 +66,17 @@
           "type": "object", "additionalProperties": false,
           "properties": {
             "backend": {"type": "string", "enum": ["default", "kitchen", "sage"], "default": "kitchen"},
-            "sage_attention": {"type": "string", "default": "auto"},
+            "sage_attention": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "sageattn_qk_int8_pv_fp16_cuda",
+                "sageattn_qk_int8_pv_fp16_triton",
+                "sageattn_qk_int8_pv_fp8_cuda",
+                "sageattn_qk_int8_pv_fp8_cuda++"
+              ],
+              "default": "auto"
+            },
             "allow_compile": {"type": "boolean", "default": false}
           }
         },
@@ -85,6 +95,83 @@
             "audio_metric_stride": {"type": "integer", "minimum": 1},
             "device": {"type": "string"},
             "verbose": {"type": "boolean"}
+          }
+        },
+        "approximation": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "method": {"type": "string", "enum": ["none", "teacache", "spectrum", "speed_cache", "fastpath"], "default": "none"},
+            "teacache": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "rel_l1_thresh": {"type": "number", "minimum": 0, "maximum": 0.5},
+                "start_step": {"type": "integer", "minimum": 0},
+                "end_step": {"type": "integer", "minimum": -20},
+                "total_steps": {"type": "integer", "minimum": 1}
+              }
+            },
+            "spectrum": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "blend_weight": {"type": "number", "minimum": 0, "maximum": 1},
+                "audio_blend_weight": {"type": "number", "minimum": 0, "maximum": 1},
+                "degree": {"type": "integer", "minimum": 1, "maximum": 16},
+                "ridge_lambda": {"type": "number", "minimum": 0},
+                "window_size": {"type": "number", "minimum": 1},
+                "flex_window": {"type": "number", "minimum": 0},
+                "warmup_steps": {"type": "integer", "minimum": 0},
+                "tail_actual_steps": {"type": "integer", "minimum": 0},
+                "max_history": {"type": "integer", "minimum": 2},
+                "history_storage": {"type": "string", "enum": ["system_ram", "vram"]},
+                "bootstrap_first_forecast": {"type": "boolean"},
+                "anchor_residual_feedback": {"type": "boolean"},
+                "selective_rollback_correction": {"type": "boolean"},
+                "offline_smoothing_replay": {"type": "boolean"},
+                "offline_archive_storage": {"type": "string", "enum": ["system_ram", "vram"]},
+                "model_aware_mode": {"type": "string", "enum": ["off", "schedule", "schedule_confidence", "full"]},
+                "model_aware_risk_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+                "model_aware_trust_shrinkage": {"type": "boolean"},
+                "model_aware_replay_generic_correction": {"type": "boolean"},
+                "generic_correction_mode": {"type": "string", "enum": ["legacy", "coordinate_rls", "coordinate_rls_reliability", "regional"]},
+                "generic_correction_limiter": {"type": "string", "enum": ["rational", "hard_clip", "tanh"]},
+                "generic_correction_limit": {"type": "number", "minimum": 0.01, "maximum": 1},
+                "generic_correction_attenuation": {"type": "string", "enum": ["mode_default", "no_attenuation", "general_confidence", "correction_reliability", "combined_conservative"]},
+                "sa_pece_forecast_policy": {"type": "string", "enum": ["max_speed", "balanced", "stable_start"]},
+                "debug": {"type": "boolean"}
+              }
+            },
+            "speed_cache": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "reuse_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+                "start_percent": {"type": "number", "minimum": 0, "maximum": 1},
+                "end_percent": {"type": "number", "minimum": 0, "maximum": 1},
+                "max_consecutive_skips": {"type": "integer", "minimum": 1, "maximum": 5},
+                "cache_device": {"type": "string", "enum": ["auto", "gpu", "cpu"]},
+                "vram_reserve_gb": {"type": "number", "minimum": 0.5},
+                "ram_reserve_gb": {"type": "number", "minimum": 1},
+                "signature_tokens": {"type": "integer", "minimum": 32},
+                "signature_features": {"type": "integer", "minimum": 16},
+                "verbose": {"type": "boolean"},
+                "sage_attention": {"type": "string", "enum": ["auto", "enabled", "disabled"]}
+              }
+            },
+            "fastpath": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "prefix_blocks": {"type": "integer", "minimum": 1},
+                "suffix_blocks": {"type": "integer", "minimum": 1},
+                "reuse_threshold": {"type": "number", "minimum": 0, "maximum": 2},
+                "max_consecutive_reuses": {"type": "integer", "minimum": 1, "maximum": 4},
+                "cache_device": {"type": "string", "enum": ["gpu", "cpu"]},
+                "require_fastpath_schedule": {"type": "boolean"},
+                "strict_branch_identity": {"type": "boolean"},
+                "suppress_candidate_prefetch": {"type": "boolean"},
+                "verbose": {"type": "boolean"}
+              }
+            }
           }
         },
         "models": {

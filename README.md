@@ -67,6 +67,24 @@ Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep
 | SageAttention | 已安装、显式启用 | KJNodes + SageAttention 2，作为 SM89 消融后端 |
 | timestep cache | 仅显式启用 | 参考 workflow 中为 bypass，可能改变质量，不默认打开 |
 
+H3 的近似加速器与 attention 加速器分开建模；同一 graph 不能叠加 `cache.enabled` 与
+`approximation.method`，避免多个 cache 修改同一个 diffusion forward。当前可复现的近似方法为：
+
+| 方法 | 类型 | keep/0.75MP/8steps 实测 | 结论 |
+| --- | --- | ---: | --- |
+| `teacache` | diffusion forecast/cache | 228.076s | 当前速度优先候选；冷进程约快 24.89%，会改变数值轨迹，需人工 A/B |
+| `spectrum` | forecast/cache | 251.688s | 冷进程约快 17.11%，比 TeaCache 慢，近似偏差更大 |
+| SageAttention `auto` | FP8 attention (SM89) | 292.167s | 可用，约快 3.60%，但未超过 Kitchen 的稳定优势 |
+| SageAttention explicit CUDA | FP16 attention | 314.408s | 可运行但更慢 |
+| SageAttention `allow_compile` | attention compile | 320.432s | 可运行但更慢 |
+| `agsoft_cache` | legacy cache | 300.722s | 完成但无可测收益，不作为默认 |
+| `fastpath` | middle-block cache | failed at 64.465s | 当前 aimdo Windows 内存图编译冲突 |
+| `speed_cache` | diffusion cache | failed at 98.792s | H3 `FinalLayer` 接口不兼容 |
+
+因此生产主干仍保留精确的 Kitchen graph；若接受近似轨迹，使用 `teacache` 作为速度配置，
+而不是把一次单 shot 的正收益误写成无损优化。详细的 keep E2E 记录见
+[`benchmarks/README.md`](benchmarks/README.md)。
+
 实验时可以只覆盖需要比较的参数，例如：
 
 ```yaml
@@ -86,6 +104,18 @@ python scripts/benchmark_h3_runtime.py shots/nun/shot01_idle.yaml `
 ```
 
 当前 Ada/SM89 机器的实测记录见 [`benchmarks/`](benchmarks/)。
+
+近似加速消融示例（每个候选都要在新的 ComfyUI 进程执行一次）：
+
+```powershell
+python scripts/benchmark_h3_runtime.py shots/nun/shot01_idle.yaml `
+  --api-url http://127.0.0.1:8189 --profile keep --seed 424243 `
+  --variants teacache
+```
+
+每个近似方案必须在独立 ComfyUI 进程中测试；Speed Cache 会做进程级 monkey-patch，不能与其他
+variant 在同一进程连续比较。启动脚本会把 Triton 编译缓存放到仓库内的 `temp/triton-cache`，
+避免 Windows 用户目录权限问题。
 
 ## Prompt 与参考图
 

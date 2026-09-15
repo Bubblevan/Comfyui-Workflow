@@ -2,7 +2,8 @@
 
 param(
     [string]$RepoRoot = '',
-    [switch]$SkipAgsoft
+    [switch]$SkipAgsoft,
+    [switch]$SkipExperimentalH3Nodes
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,6 +16,14 @@ $kjPath = Join-Path $customNodes 'ComfyUI-KJNodes'
 $agsoftPath = Join-Path $customNodes 'comfyui-AGSoft'
 $kjRevision = 'd3cfe21625e5170126ce06fbfcfe1d88108688c3'
 $agsoftRevision = '4d508dff4410ac1ae561d1527217cdbda742eb38'
+$teaPath = Join-Path $customNodes 'ComfyUI-MiniMaxH3-TeaCache'
+$teaRevision = '4cbb50d69c73a19a5d6ec42c5aec1989d5a04b6f'
+$spectrumPath = Join-Path $customNodes 'ComfyUI-Spectrum-MiniMax-H3'
+$spectrumRevision = '120d72e2f48b781235b34149e39bbdf0f1317d82'
+$speedPath = Join-Path $customNodes 'comfyui-speed-minimaxH3'
+$speedRevision = '2f507d687cd6767212ae003d272042bf886a3cd3'
+$fastPath = Join-Path $customNodes 'ComfyUI-MiniMax-H3-FastPath'
+$fastRevision = '23575c19bf85e541fd1d3dbbbee86e3bf5a55722'
 
 if (-not (Test-Path -LiteralPath $venvPython)) {
     throw "找不到目标 ComfyUI Python：$venvPython"
@@ -44,6 +53,13 @@ if (-not $SkipAgsoft) {
     if (Test-Path -LiteralPath (Join-Path $agsoftPath 'requirements.txt')) {
         & $venvPython -m pip install -r (Join-Path $agsoftPath 'requirements.txt')
     }
+}
+
+if (-not $SkipExperimentalH3Nodes) {
+    Ensure-RepositoryRevision $teaPath 'https://github.com/Icyoung/ComfyUI-MiniMaxH3-TeaCache.git' $teaRevision
+    Ensure-RepositoryRevision $spectrumPath 'https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3.git' $spectrumRevision
+    Ensure-RepositoryRevision $speedPath 'https://github.com/linjian-ufo/comfyui-speed-minimaxH3.git' $speedRevision
+    Ensure-RepositoryRevision $fastPath 'https://github.com/capitan01R/ComfyUI-MiniMax-H3-FastPath.git' $fastRevision
 }
 
 & $venvPython -m pip check

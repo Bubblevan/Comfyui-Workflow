@@ -68,3 +68,45 @@ def test_reference_runtime_profile_inserts_borrowed_nodes():
     assert "AGSoftMiniMaxH3Cache" in types
     assert graph["141"]["inputs"]["on_false"][0] != "127"
     assert graph["145"]["inputs"]["model"][0] == graph["141"]["inputs"]["on_false"][0]
+
+
+def test_approximation_profiles_are_mutually_selectable():
+    expected = {
+        "teacache": "MiniMaxH3TeaCache",
+        "spectrum": "SpectrumApplyMiniMaxH3",
+        "speed_cache": "MiniMaxH3SpeedCache",
+        "fastpath": "MiniMaxH3EulerMiddleCache",
+    }
+    for method, class_type in expected.items():
+        graph = h3.build_graph(
+            "prompt",
+            _refs(),
+            {"megapixels": 0.75, "steps": 8, "turbo": True, "takes": 1},
+            1,
+            5,
+            f"video/{method}",
+            ["primary.png", "face.png"],
+            {"approximation": {"method": method}},
+        )
+        types = [node.get("class_type") for node in graph.values()]
+        assert types.count(class_type) == 1
+        assert graph["123"]["inputs"]["sampler_name"] == "euler"
+        assert graph["124"]["inputs"]["scheduler"] == "simple"
+
+
+def test_cache_and_approximation_cannot_be_stacked():
+    try:
+        h3.build_graph(
+            "prompt",
+            _refs(),
+            _profile(),
+            1,
+            5,
+            "video/conflict",
+            ["primary.png", "face.png"],
+            {"cache": {"enabled": True}, "approximation": {"method": "teacache"}},
+        )
+    except h3.HarnessError as exc:
+        assert "cannot be enabled together" in str(exc)
+    else:
+        raise AssertionError("cache and approximation unexpectedly stacked")

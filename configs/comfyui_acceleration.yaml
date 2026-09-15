@@ -23,6 +23,29 @@ custom_nodes:
     capabilities:
       - AGSoftMiniMaxH3Cache
 
+experimental_h3_nodes:
+  - name: ComfyUI-MiniMaxH3-TeaCache
+    repository: https://github.com/Icyoung/ComfyUI-MiniMaxH3-TeaCache.git
+    revision: 4cbb50d69c73a19a5d6ec42c5aec1989d5a04b6f
+    capabilities:
+      - MiniMaxH3TeaCache
+  - name: ComfyUI-Spectrum-MiniMax-H3
+    repository: https://github.com/xmarre/ComfyUI-Spectrum-MiniMax-H3.git
+    revision: 120d72e2f48b781235b34149e39bbdf0f1317d82
+    capabilities:
+      - SpectrumApplyMiniMaxH3
+  - name: comfyui-speed-minimaxH3
+    repository: https://github.com/linjian-ufo/comfyui-speed-minimaxH3.git
+    revision: 2f507d687cd6767212ae003d272042bf886a3cd3
+    capabilities:
+      - MiniMaxH3SpeedCache
+      - MiniMaxH3TextEncoderCache
+  - name: ComfyUI-MiniMax-H3-FastPath
+    repository: https://github.com/capitan01R/ComfyUI-MiniMax-H3-FastPath.git
+    revision: 23575c19bf85e541fd1d3dbbbee86e3bf5a55722
+    capabilities:
+      - MiniMaxH3EulerMiddleCache
+
 validation:
   startup_switch: -UseSageAttention
   sage_backend: sage
