@@ -27,6 +27,7 @@ def test_default_graph_uses_reference_workflow_runtime_path():
     assert "MiniMaxH3SigmaShift" in types
     assert "ModelAttentionBackend" in types
     assert "PathchSageAttentionKJ" not in types
+    assert "MiniMaxH3TeaCache" in types
     assert not any(node.get("class_type") == "AGSoftMiniMaxH3Cache" for node in graph.values())
 
 
@@ -56,6 +57,7 @@ def test_reference_runtime_profile_inserts_borrowed_nodes():
             "model_shift": {"enabled": True, "shift_video": 12, "shift_audio": 3},
             "attention": {"backend": "sage", "sage_attention": "auto", "allow_compile": False},
             "cache": {"enabled": True, "profile": "Balanced"},
+            "approximation": {"method": "none"},
         },
     )
     assert graph["136"]["inputs"]["ref_image_size"] == "match"

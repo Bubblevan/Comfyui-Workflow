@@ -100,7 +100,7 @@
         "approximation": {
           "type": "object", "additionalProperties": false,
           "properties": {
-            "method": {"type": "string", "enum": ["none", "teacache", "spectrum", "speed_cache", "fastpath"], "default": "none"},
+            "method": {"type": "string", "enum": ["none", "teacache", "spectrum", "speed_cache", "fastpath"], "default": "teacache"},
             "teacache": {
               "type": "object", "additionalProperties": false,
               "properties": {

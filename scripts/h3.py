@@ -45,9 +45,10 @@ DEFAULT_RUNTIME: dict[str, Any] = {
     # Cache nodes are retained as an explicit experiment because the reference
     # workflow bypasses them and cache thresholds can trade quality for speed.
     "cache": {"enabled": False},
-    # Approximate H3 accelerators are mutually exclusive and opt-in.  Keeping
-    # this separate from the legacy AGSoft cache makes A/B manifests explicit.
-    "approximation": {"method": "none"},
+    # TeaCache is the current production default after the keep E2E ablation.
+    # Exact regression remains explicit so it cannot be confused with the
+    # approximate production path.
+    "approximation": {"method": "teacache"},
 }
 
 

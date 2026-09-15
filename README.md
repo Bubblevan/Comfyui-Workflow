@@ -51,7 +51,7 @@ python scripts/nsfw_library.py list
 8. QC：`python scripts/h3.py qc RUN_ID`；
 9. accept/reject：`python scripts/h3.py accept RUN_ID frame_003` 或 `reject`。
 
-Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep 默认约 0.75 MP / Turbo / 8 steps / 1 take。主干默认使用参考 workflow 的 `match` reference-size、`euler + simple`、H3 flow shift `12/3` 和 Comfy Kitchen attention；shot 的 `runtime` 只用于覆盖这些值或进行可追溯的加速消融实验。
+Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep 默认约 0.75 MP / Turbo / 8 steps / 1 take。主干默认使用参考 workflow 的 `match` reference-size、`euler + simple`、H3 flow shift `12/3`、Comfy Kitchen attention 和 TeaCache；shot 的 `runtime` 只用于覆盖这些值或进行可追溯的加速消融实验。
 
 ## H3 主干运行参数
 
@@ -63,9 +63,9 @@ Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep
 | 采样 | `euler` | 参考 H3 workflow 的采样器，仍支持 shot 级覆盖 |
 | 调度 | `simple` | 与参考 workflow 对齐，仍支持 shot 级覆盖 |
 | H3 flow shift | video `12` / audio `3` | 通过 `MiniMaxH3SigmaShift` 接入模型链 |
-| dense attention | Comfy Kitchen | 当前 H3 主干的正收益默认后端 |
+| dense attention | Comfy Kitchen | 当前 H3 主干的默认 attention 后端 |
 | SageAttention | 已安装、显式启用 | KJNodes + SageAttention 2，作为 SM89 消融后端 |
-| timestep cache | 仅显式启用 | 参考 workflow 中为 bypass，可能改变质量，不默认打开 |
+| TeaCache | 默认启用 | keep E2E 冷进程约快 24.89%；属于近似路径，精确回归需显式关闭 |
 
 H3 的近似加速器与 attention 加速器分开建模；同一 graph 不能叠加 `cache.enabled` 与
 `approximation.method`，避免多个 cache 修改同一个 diffusion forward。当前可复现的近似方法为：
@@ -74,16 +74,17 @@ H3 的近似加速器与 attention 加速器分开建模；同一 graph 不能�
 | --- | --- | ---: | --- |
 | `teacache` | diffusion forecast/cache | 228.076s | 当前速度优先候选；冷进程约快 24.89%，会改变数值轨迹，需人工 A/B |
 | `spectrum` | forecast/cache | 251.688s | 冷进程约快 17.11%，比 TeaCache 慢，近似偏差更大 |
-| SageAttention `auto` | FP8 attention (SM89) | 292.167s | 可用，约快 3.60%，但未超过 Kitchen 的稳定优势 |
-| SageAttention explicit CUDA | FP16 attention | 314.408s | 可运行但更慢 |
-| SageAttention `allow_compile` | attention compile | 320.432s | 可运行但更慢 |
+| SageAttention `auto` | FP8 attention (SM89) | 292.167s | 可用，约快 3.78%，但未超过 Kitchen 的稳定优势 |
+| SageAttention explicit CUDA | FP16 attention | 314.408s | 可运行但慢 3.55% |
+| SageAttention `allow_compile` | attention compile | 320.432s | 可运行但慢 5.53% |
 | `agsoft_cache` | legacy cache | 300.722s | 完成但无可测收益，不作为默认 |
 | `fastpath` | middle-block cache | failed at 64.465s | 当前 aimdo Windows 内存图编译冲突 |
 | `speed_cache` | diffusion cache | failed at 98.792s | H3 `FinalLayer` 接口不兼容 |
 
-因此生产主干仍保留精确的 Kitchen graph；若接受近似轨迹，使用 `teacache` 作为速度配置，
-而不是把一次单 shot 的正收益误写成无损优化。详细的 keep E2E 记录见
-[`benchmarks/README.md`](benchmarks/README.md)。
+因此生产主干默认使用 Kitchen + TeaCache；需要逐数值回归时，将 `approximation.method` 显式设为
+`none`。TeaCache 的速度收益不能等价写成无损优化。详细的 keep E2E 记录见
+[`benchmarks/README.md`](benchmarks/README.md)；面向社区的完整实验报告见
+[`docs/experiments/h3-runtime-acceleration-keep-ablation-20260916.md`](docs/experiments/h3-runtime-acceleration-keep-ablation-20260916.md)。
 
 实验时可以只覆盖需要比较的参数，例如：
 
@@ -93,6 +94,10 @@ runtime:
     backend: sage
     sage_attention: auto
     allow_compile: false
+
+  # 精确回归时关闭默认 TeaCache
+  approximation:
+    method: none
 ```
 
 重复 backend 的 API 级消融可复现：

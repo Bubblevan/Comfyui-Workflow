@@ -24,12 +24,12 @@ import h3  # noqa: E402
 
 
 VARIANT_OVERRIDES: dict[str, dict[str, Any]] = {
-    "mainline": {},
-    "pytorch": {"attention": {"backend": "default"}},
-    "sage": {"attention": {"backend": "sage", "sage_attention": "auto", "allow_compile": False}},
-    "sage_cuda": {"attention": {"backend": "sage", "sage_attention": "sageattn_qk_int8_pv_fp16_cuda", "allow_compile": False}},
-    "sage_triton": {"attention": {"backend": "sage", "sage_attention": "sageattn_qk_int8_pv_fp16_triton", "allow_compile": False}},
-    "sage_compile": {"attention": {"backend": "sage", "sage_attention": "auto", "allow_compile": True}},
+    "mainline": {"approximation": {"method": "none"}},
+    "pytorch": {"attention": {"backend": "default"}, "approximation": {"method": "none"}},
+    "sage": {"attention": {"backend": "sage", "sage_attention": "auto", "allow_compile": False}, "approximation": {"method": "none"}},
+    "sage_cuda": {"attention": {"backend": "sage", "sage_attention": "sageattn_qk_int8_pv_fp16_cuda", "allow_compile": False}, "approximation": {"method": "none"}},
+    "sage_triton": {"attention": {"backend": "sage", "sage_attention": "sageattn_qk_int8_pv_fp16_triton", "allow_compile": False}, "approximation": {"method": "none"}},
+    "sage_compile": {"attention": {"backend": "sage", "sage_attention": "auto", "allow_compile": True}, "approximation": {"method": "none"}},
     "teacache": {"approximation": {"method": "teacache"}},
     "spectrum": {"approximation": {"method": "spectrum"}},
     "speed_cache": {
@@ -40,7 +40,7 @@ VARIANT_OVERRIDES: dict[str, dict[str, Any]] = {
         "approximation": {"method": "speed_cache", "speed_cache": {"sage_attention": "disabled"}},
     },
     "fastpath": {"approximation": {"method": "fastpath"}},
-    "agsoft_cache": {"cache": {"enabled": True, "profile": "Balanced"}},
+    "agsoft_cache": {"cache": {"enabled": True, "profile": "Balanced"}, "approximation": {"method": "none"}},
 }
 
 

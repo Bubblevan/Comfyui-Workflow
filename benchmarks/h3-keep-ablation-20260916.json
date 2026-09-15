@@ -96,7 +96,8 @@
     }
   ],
   "decision": {
-    "exact_quality_standard": "mainline Kitchen",
+    "production_default": "teacache",
+    "exact_quality_standard": "mainline Kitchen with approximation.method none",
     "speed_priority_candidate": "teacache",
       "speed_priority_seconds": 228.076,
     "quality_metric_note": "mean_abs_pixel_error is a numerical A/B probe, not a perceptual quality score; manual review remains required."

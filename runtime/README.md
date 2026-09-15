@@ -23,9 +23,10 @@ MiniMax H3 的 Sage 节点。
 .\scripts\start_comfyui.ps1 -UseSageAttention
 ```
 
-不加这个开关时，canonical H3 graph 使用主干默认的 Comfy Kitchen attention、H3 sigma
-shift 以及 `euler`/`simple` 采样组合；这个开关只影响没有显式选择 model backend 的全局
-ComfyUI 路径。shot 的 `runtime.attention.backend: sage` 仍可按单个 H3 流程显式插入参考
+不加这个开关时，canonical H3 graph 使用主干默认的 Comfy Kitchen attention + TeaCache、H3 sigma
+shift 以及 `euler`/`simple` 采样组合；需要精确回归时，在 shot 的 `runtime.approximation.method`
+中显式写 `none`。这个开关只影响没有显式选择 model backend 的全局 ComfyUI 路径。shot 的
+`runtime.attention.backend: sage` 仍可按单个 H3 流程显式插入参考
 workflow 使用的两个 KJ patch 节点。Sage 与 H3 的 memory-efficient patch 都是实验性路径，
 正式批量生成前应使用固定 seed 做一次质量和稳定性 A/B。
 
