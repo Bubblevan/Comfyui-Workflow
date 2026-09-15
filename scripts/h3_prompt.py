@@ -18,7 +18,9 @@ SECTION_NAMES = (
 
 def selected_references(character: dict[str, Any], shot: dict[str, Any]) -> list[dict[str, Any]]:
     """Return only references named by the shot, preserving character order."""
-    by_id = {item["id"]: item for item in character["references"]}
+    # Keep the first occurrence for legacy manifests that reused an id such as
+    # `face`; later occurrences remain addressable as face_2, face_3, ... .
+    by_id = reference_lookup(character)
     selected_ids = shot.get("references") or [item["id"] for item in character["references"]]
     missing = [ref_id for ref_id in selected_ids if ref_id not in by_id]
     if missing:
@@ -30,6 +32,18 @@ def selected_references(character: dict[str, Any], shot: dict[str, Any]) -> list
         # Picture labels are assigned by usage, not by a character's unused references.
         ref["picture_label"] = f"Picture {index}"
     return refs
+
+
+def reference_lookup(character: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Index references and give legacy duplicate ids deterministic aliases."""
+    by_id: dict[str, dict[str, Any]] = {}
+    counts: dict[str, int] = {}
+    for item in character["references"]:
+        ref_id = item["id"]
+        counts[ref_id] = counts.get(ref_id, 0) + 1
+        key = ref_id if counts[ref_id] == 1 else f"{ref_id}_{counts[ref_id]}"
+        by_id[key] = item
+    return by_id
 
 
 def _reference_lines(references: list[dict[str, Any]]) -> tuple[str, str]:

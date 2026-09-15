@@ -22,7 +22,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from h3_prompt import compile_prompt, selected_references
+from h3_prompt import compile_prompt, reference_lookup, selected_references
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -207,6 +207,51 @@ def validate_workflow_contract(graph: dict[str, Any], contract: dict[str, Any] |
         raise HarnessError("workflow contract mismatch (fail fast): " + " | ".join(errors))
 
 
+def character_manifest_paths() -> list[Path]:
+    return sorted((ROOT / "characters").glob("**/*.yaml"))
+
+
+def find_character_manifest(character_id: str) -> Path:
+    matches = []
+    for path in character_manifest_paths():
+        try:
+            if load_document(path).get("id") == character_id:
+                matches.append(path)
+        except (OSError, HarnessError):
+            continue
+    if not matches:
+        raise HarnessError(f"character manifest not found for id: {character_id}")
+    if len(matches) > 1:
+        raise HarnessError(f"multiple character manifests found for id {character_id}: {', '.join(str(p.relative_to(ROOT)) for p in matches)}")
+    return matches[0]
+
+
+def resolve_reference_path(ref: dict[str, Any], character_path: Path, character_id: str) -> Path:
+    """Resolve a manifest path when an optional game-name folder was inserted."""
+    declared = ROOT / ref["file"]
+    if declared.is_file():
+        return declared
+    try:
+        character_parent = character_path.resolve().relative_to((ROOT / "characters").resolve()).parent.parts
+    except ValueError:
+        character_parent = ()
+    ref_path = Path(ref["file"])
+    parts = list(ref_path.parts)
+    candidates: list[Path] = []
+    if character_parent and len(parts) >= 3 and parts[0] == "assets" and parts[1] == "references":
+        candidates.append(ROOT / "assets" / "references" / Path(*character_parent) / Path(*parts[2:]))
+    if character_parent:
+        candidates.append(ROOT / "assets" / "references" / Path(*character_parent) / character_id / ref_path.name)
+    candidates.extend((ROOT / "assets" / "references").glob(f"**/{ref_path.name}"))
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise HarnessError(
+        f"reference image missing: {declared}. Checked optional game-folder variants; "
+        "update only the manifest file name if the actual asset is named differently."
+    )
+
+
 def validate_repository() -> list[str]:
     if not WORKFLOW_PATH.is_file():
         raise HarnessError(f"canonical workflow missing: {WORKFLOW_PATH}")
@@ -218,7 +263,7 @@ def validate_repository() -> list[str]:
             raise HarnessError(f"model path config must stay portable; absolute base_path in {name}")
     graph = json.loads(WORKFLOW_PATH.read_text(encoding="utf-8"))
     validate_workflow_contract(graph)
-    characters = list((ROOT / "characters").glob("*.yaml"))
+    characters = character_manifest_paths()
     shots = list((ROOT / "shots").glob("**/*.yaml"))
     if not characters or not shots:
         raise HarnessError("at least one character and one shot manifest are required")
@@ -229,20 +274,25 @@ def validate_repository() -> list[str]:
         if doc["id"] in character_map:
             raise HarnessError(f"duplicate character id: {doc['id']}")
         character_map[doc["id"]] = (path, doc)
-        if len({ref["id"] for ref in doc["references"]}) != len(doc["references"]):
-            raise HarnessError(f"duplicate reference id in {path}")
-        for ref in doc["references"]:
-            if not (ROOT / ref["file"]).is_file():
-                raise HarnessError(f"reference image missing: {ROOT / ref['file']}")
-    names = []
+    shot_documents = []
     for path in shots:
         doc = load_document(path)
         validate_schema(doc, ROOT / "schemas" / "shot.schema.json", "shot")
         validate_profile(doc["generation"]["explore"], f"{path} explore")
         validate_profile(doc["generation"]["keep"], f"{path} keep")
+        shot_documents.append((path, doc))
+    active_characters = {doc["character"] for _, doc in shot_documents}
+    for character_id in active_characters:
+        if character_id not in character_map:
+            raise HarnessError(f"shot references unknown character {character_id}")
+        character_path, character = character_map[character_id]
+        for ref in character["references"]:
+            resolve_reference_path(ref, character_path, character_id)
+    names = []
+    for path, doc in shot_documents:
         if doc["character"] not in character_map:
             raise HarnessError(f"shot {path} references unknown character {doc['character']}")
-        refs = {ref["id"] for ref in character_map[doc["character"]][1]["references"]}
+        refs = set(reference_lookup(character_map[doc["character"]][1]))
         unknown = set(doc["references"]) - refs
         if unknown:
             raise HarnessError(f"shot {path} references unknown reference ids: {', '.join(sorted(unknown))}")
@@ -316,14 +366,13 @@ def ensure_directories() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
-def stage_references(character: dict[str, Any], references: list[dict[str, Any]]) -> list[str]:
+def stage_references(character: dict[str, Any], references: list[dict[str, Any]], character_path: Path | None = None) -> list[str]:
     destination = ROOT / "input" / "h3" / character["id"]
     destination.mkdir(parents=True, exist_ok=True)
     names = []
     for ref in references:
-        source = ROOT / ref["file"]
-        if not source.is_file():
-            raise HarnessError(f"reference image missing: {source}")
+        source = resolve_reference_path(ref, character_path or (ROOT / "characters" / f"{character['id']}.yaml"), character["id"])
+        ref["resolved_file"] = source.relative_to(ROOT).as_posix()
         name = f"{ref['id']}_{source.name}"
         target = destination / name
         if not target.is_file() or sha256(target) != sha256(source):
@@ -408,7 +457,7 @@ def _model_profile(graph: dict[str, Any]) -> dict[str, Any]:
 def execute_run(shot_path: Path, seed: int, profile_name: str, api_url: str, timeout: float, retries: int) -> Path:
     ensure_directories()
     shot = load_document(shot_path)
-    character_path = ROOT / "characters" / f"{shot['character']}.yaml"
+    character_path = find_character_manifest(shot["character"])
     character = load_document(character_path)
     validate_schema(character, ROOT / "schemas" / "character.schema.json", "character")
     validate_schema(shot, ROOT / "schemas" / "shot.schema.json", "shot")
@@ -421,7 +470,7 @@ def execute_run(shot_path: Path, seed: int, profile_name: str, api_url: str, tim
     prompt_path = run_dir / "prompt.txt"
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(prompt, encoding="utf-8")
-    image_names = stage_references(character, refs)
+    image_names = stage_references(character, refs, character_path)
     graph = build_graph(prompt, refs, profile, seed, shot["duration"], f"video/{run_id}", image_names)
     workflow_snapshot = run_dir / "workflow.json"
     write_json(workflow_snapshot, graph)
@@ -436,7 +485,7 @@ def execute_run(shot_path: Path, seed: int, profile_name: str, api_url: str, tim
         "megapixels": profile["megapixels"],
         "steps": profile["steps"],
         "turbo": profile["turbo"],
-        "references": [{"id": ref["id"], "file": ref["file"], "role": ref["role"], "picture_label": ref["picture_label"]} for ref in refs],
+        "references": [{"id": ref["id"], "file": ref.get("resolved_file", ref["file"]), "declared_file": ref["file"], "role": ref["role"], "picture_label": ref["picture_label"]} for ref in refs],
         "prompt_file": prompt_path.relative_to(ROOT).as_posix(),
         "workflow_file": WORKFLOW_PATH.relative_to(ROOT).as_posix(),
         "workflow_snapshot": workflow_snapshot.relative_to(ROOT).as_posix(),
@@ -494,7 +543,7 @@ def cmd_validate(_: argparse.Namespace) -> None:
 def cmd_prompt(args: argparse.Namespace) -> None:
     shot_path = (ROOT / args.shot).resolve()
     shot = load_document(shot_path)
-    character = load_document(ROOT / "characters" / f"{shot['character']}.yaml")
+    character = load_document(find_character_manifest(shot["character"]))
     print(compile_prompt(character, shot))
 
 

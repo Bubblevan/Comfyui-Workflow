@@ -22,7 +22,7 @@ def shot_for(character: dict, count: int) -> dict:
 
 
 def test_character_schema():
-    document = h3.load_document(ROOT / "characters" / "nun.yaml")
+    document = h3.load_document(h3.find_character_manifest("nun"))
     h3.validate_schema(document, ROOT / "schemas" / "character.schema.json", "character")
 
 
