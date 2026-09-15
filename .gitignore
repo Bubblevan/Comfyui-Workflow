@@ -17,3 +17,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .pytest-tmp/
+
+assets/references
+characters/brainwash-corruption-srpg

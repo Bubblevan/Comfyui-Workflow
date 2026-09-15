@@ -1,0 +1,78 @@
+schema_version: 1
+id: effect.hypnosis.dark_pink_irises
+version: 1
+title: Dark-pink iris transition
+category: effect
+tags:
+  - hypnosis
+  - eyes
+  - color-transition
+  - non-explicit
+
+safety:
+  adult_only: true
+  fictional_only: true
+  consent_model: explicit_roleplay
+  prohibited_contexts:
+    - minors_or_age_ambiguous_characters
+    - non_consensual_sexual_activity
+    - real_person_sexualization
+
+prompt:
+  opening:
+    framing: medium_close_up
+    view: three_quarter_front
+    description: >
+      The adult fictional character is shown in a newly generated medium close-up.
+      Both eyes are visible and begin with their original iris color and natural catchlights.
+  beats:
+    - start: 0.0
+      end: 1.5
+      description: >
+        The character holds a composed forward gaze and blinks once. The original iris color,
+        eye shape, and natural catchlights remain stable.
+    - start: 1.5
+      end: 3.2
+      description: >
+        A subtle dark-pink tint gradually spreads evenly through both irises while the eye shape,
+        pupils, catchlights, and facial proportions remain unchanged.
+    - start: 3.2
+      end: 5.0
+      description: >
+        The transition finishes with stable symmetrical dark-pink irises and a calm fixed gaze.
+        No other facial feature changes.
+  ending: >
+    Stable close-up with symmetrical dark-pink irises, preserved eye shape,
+    preserved catchlights, and a calm fixed expression.
+  constraints:
+    - exactly one adult fictional character
+    - preserve identity, face shape, eye shape, pupils, catchlights, hair, clothing, and proportions
+    - change only the iris hue
+    - both irises must transform symmetrically
+    - no extra pupils, eye deformation, scene cuts, or camera orbit
+    - no explicit sexual action, text, or watermark
+
+compatibility:
+  model_family: MiniMax H3 Ref2VA
+  reference_mode: reference_generation
+  recommended_duration: 5
+  recommended_references:
+    - primary
+    - face
+  sampler: Euler
+  scheduler: beta
+  notes:
+    - Run after the catchlight control so color and gaze effects can be compared separately.
+
+provenance:
+  source_type: original_local
+  source_ids:
+    - h3_prompt_guide_ref
+  license_status: local_original
+  notes: Local prompt card; no third-party asset is bundled.
+
+review:
+  status: reviewed
+  reviewer: local-harness
+  last_reviewed: '2026-09-16'
+  known_issues: []

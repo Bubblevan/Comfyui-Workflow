@@ -29,7 +29,11 @@ detailed_description:
 {% if mode == 'first_frame' %}The shot begins from <Picture 1>.{% elif mode == 'last_frame' %}The shot ends at <Picture 1>.{% elif mode == 'keyframe' %}Treat only the explicitly described picture moment as a keyframe; do not force other pictures to be video frames.{% endif %}
 
 overall_soundscape:
-N/A. Do not generate dialogue, singing, effects, or environmental ambience.
+{% set audio = shot.get('audio', {}) %}{% if audio.get('policy') == 'dialogue' %}Language: {{ audio.get('language', 'the specified language') }}.
+Voice: {{ audio.get('voice', {}).get('gender', 'unspecified') }} {{ audio.get('voice', {}).get('age', 'adult') }} voice; {{ audio.get('voice', {}).get('style', 'natural, clear delivery') }}.
+{% for line in audio.get('dialogue', []) %}{{ line.get('start', 0) }}-{{ line.get('end', shot.duration) }}s: {{ line.get('speaker', 'Subject 1') }} says exactly "{{ line.get('text', '') }}"{% if line.get('delivery') %}, {{ line.get('delivery') }}{% endif %}.
+{% endfor %}{% if audio.get('ambience') %}Ambience: {{ audio.get('ambience') }}.
+{% endif %}Do not generate singing or additional dialogue.{% elif audio.get('policy') == 'soundscape' %}{{ audio.get('ambience', 'Generate only the described natural soundscape.') }}{% else %}N/A. Do not generate dialogue, singing, effects, or environmental ambience.{% endif %}
 
 non_diegetic_music:
-N/A. Treat the deliverable as silent.
+{% if audio.get('music') and audio.get('music') != 'none' %}{{ audio.get('music') }}{% else %}N/A. Do not generate non-diegetic music.{% endif %}

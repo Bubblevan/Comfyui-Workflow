@@ -4,8 +4,10 @@ reference_mode: reference_generation
 
 references:
   - primary
-  - alternate
-  - face
+  - horny
+  - pants
+  - sex
+  - sex_climax
 
 duration: 5
 
@@ -25,7 +27,7 @@ beats:
   - start: 1.5
     end: 3.5
     description: >
-      She shifts her weight subtly, turns her head a small amount, and steadies her posture.
+      She shifts her weight subtly, turns her head a small amount, and speaks one short sentence in Mandarin Chinese with subtle natural mouth movement: “请保持冷静，向前看。” She then steadies her posture.
   - start: 3.5
     end: 5.0
     description: >
@@ -41,7 +43,20 @@ camera:
   speed: slow
 
 audio:
-  policy: silent
+  policy: dialogue
+  language: zh-CN
+  voice:
+    gender: female
+    age: adult
+    style: calm, clear, slightly low, restrained Mandarin delivery
+  dialogue:
+    - start: 1.6
+      end: 3.3
+      speaker: Subject 1
+      text: "请保持冷静，向前看。"
+      delivery: calm, clear, slightly low, restrained adult female voice
+  ambience: none; dry close voice with no room noise
+  music: none
 
 constraints:
   - exactly one character

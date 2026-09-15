@@ -1,0 +1,83 @@
+id: shot_hypnosis_eye_transition
+character: __CHARACTER__
+reference_mode: reference_generation
+
+references:
+  - primary
+  - face
+
+duration: 5
+
+opening:
+  framing: medium_close_up
+  view: three_quarter_front
+  description: >
+    The adult fictional character is shown in a newly generated medium close-up from a gentle
+    three-quarter front angle. Her face fills a large portion of the frame, both eyes are clearly
+    visible, and the original irises have normal bright catchlights.
+
+beats:
+  - start: 0.0
+    end: 1.2
+    description: >
+      She looks forward normally with a composed expression and blinks once. Both irises retain
+      their original color and bright natural catchlights.
+  - start: 1.2
+    end: 2.4
+    description: >
+      Her gaze slowly becomes unfocused. The bright catchlights in both eyes gradually fade away
+      while her eyelids relax slightly. Her head movement becomes minimal and her expression turns
+      distant and still.
+  - start: 2.4
+    end: 3.8
+    description: >
+      A faint dark-pink tint spreads evenly through both irises. Thin symmetrical concentric rings
+      gradually emerge inside each iris, centered precisely around the pupils. The rings become
+      progressively clearer while her gaze remains fixed straight ahead.
+  - start: 3.8
+    end: 5.0
+    description: >
+      The transformation finishes. Both eyes now show stable dark-pink concentric hypnotic ring
+      patterns with no normal catchlights. She maintains a quiet, entranced, unfocused stare and
+      remains almost completely still.
+
+ending:
+  description: >
+    Stable close-up of the adult fictional character with symmetrical dark-pink concentric
+    hypnotic iris patterns, absent catchlights, relaxed eyelids, and a fixed distant expression.
+
+camera:
+  framing: medium_close_up
+  type: push_in
+  amplitude: small
+  speed: slow
+
+audio:
+  policy: silent
+
+runtime:
+  ref_image_size: match
+  sampler: euler
+  scheduler: simple
+
+constraints:
+  - exactly one adult fictional character
+  - fictional consensual hypnosis roleplay context only
+  - preserve face identity, hair, eye shape, and facial proportions
+  - preserve the original eye outline while changing only iris color, iris pattern, catchlights, and gaze state
+  - both eyes must transform symmetrically
+  - no eye deformation, extra pupils, or mismatched left and right eyes
+  - no scene cuts, camera orbit, extra characters, props, text, or watermark
+  - no explicit sexual action
+
+generation:
+  explore:
+    megapixels: 0.5
+    steps: 4
+    turbo: true
+    takes: 4
+  keep:
+    megapixels: 0.75
+    steps: 8
+    turbo: true
+    takes: 1

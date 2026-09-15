@@ -6,7 +6,8 @@ param(
     [string]$Listen = '127.0.0.1',
     [int]$Port = 8189,
     [switch]$LowVram,
-    [switch]$CpuVae
+    [switch]$CpuVae,
+    [switch]$UseSageAttention
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,8 +32,21 @@ if ([string]::IsNullOrWhiteSpace($PythonPath) -or -not (Test-Path -LiteralPath $
 
 $sitePackages = Join-Path $RepoRoot 'runtime\venv\Lib\site-packages'
 $env:PYTHONPATH = if (Test-Path -LiteralPath $sitePackages) { "$sitePackages;$comfyRoot" } else { $comfyRoot }
+
+# Triton's Windows bootstrap otherwise sees the system CUDA 12.5 / StrawberryPerl
+# toolchain before the bundled runtime.  Point it at the same Triton assets that
+# provide the SageAttention wheel used by the H3 runtime profile.
+$tritonRoot = Join-Path $sitePackages 'triton'
+$tritonCompiler = Join-Path $tritonRoot 'runtime\tcc\tcc.exe'
+$tritonCuda = Join-Path $tritonRoot 'backends\nvidia'
+if ((Test-Path -LiteralPath $tritonCompiler) -and (Test-Path -LiteralPath (Join-Path $tritonCuda 'lib\x64\cuda.lib'))) {
+    $env:CC = $tritonCompiler
+    $env:CUDA_PATH = $tritonCuda
+}
+
 $args = @('main.py','--listen',$Listen,'--port',$Port,'--input-directory',$inputDir,'--output-directory',$outputDir,'--temp-directory',$tempDir,'--extra-model-paths-config',$modelConfig)
 if ($LowVram) { $args += '--lowvram' }
 if ($CpuVae) { $args += '--cpu-vae' }
+if ($UseSageAttention) { $args += '--use-sage-attention' }
 Push-Location $comfyRoot
 try { & $PythonPath @args } finally { Pop-Location }

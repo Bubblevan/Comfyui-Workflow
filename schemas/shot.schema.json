@@ -17,7 +17,86 @@
     "ending": {"type": "object", "additionalProperties": false, "properties": {"description": {"type": "string"}}},
     "constraints": {"type": "array", "items": {"type": "string"}},
     "camera": {"type": "object", "additionalProperties": false, "required": ["type", "amplitude", "speed"], "properties": {"framing": {"type": "string"}, "type": {"type": "string"}, "amplitude": {"type": "string"}, "speed": {"type": "string"}}},
-    "audio": {"type": "object", "additionalProperties": false, "required": ["policy"], "properties": {"policy": {"type": "string"}}},
+    "audio": {
+      "type": "object", "additionalProperties": false, "required": ["policy"],
+      "properties": {
+        "policy": {"type": "string", "enum": ["silent", "dialogue", "soundscape"]},
+        "language": {"type": "string"},
+        "voice": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "gender": {"type": "string"},
+            "age": {"type": "string"},
+            "style": {"type": "string"}
+          }
+        },
+        "dialogue": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["start", "end", "speaker", "text"],
+            "properties": {
+              "start": {"type": "number", "minimum": 0},
+              "end": {"type": "number", "exclusiveMinimum": 0},
+              "speaker": {"type": "string", "minLength": 1},
+              "text": {"type": "string", "minLength": 1},
+              "delivery": {"type": "string"}
+            }
+          }
+        },
+        "ambience": {"type": "string"},
+        "music": {"type": "string"}
+      }
+    },
+    "runtime": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "ref_image_size": {"type": "string", "enum": ["max", "match", "min"], "default": "match"},
+        "sampler": {"type": "string", "minLength": 1, "default": "euler"},
+        "scheduler": {"type": "string", "minLength": 1, "default": "simple"},
+        "model_shift": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean", "default": true},
+            "shift_video": {"type": "number", "default": 12},
+            "shift_audio": {"type": "number", "default": 3}
+          }
+        },
+        "attention": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "backend": {"type": "string", "enum": ["default", "kitchen", "sage"], "default": "kitchen"},
+            "sage_attention": {"type": "string", "default": "auto"},
+            "allow_compile": {"type": "boolean", "default": false}
+          }
+        },
+        "cache": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean", "default": false},
+            "profile": {"type": "string", "enum": ["Balanced", "Fast", "Quality"]},
+            "video_threshold": {"type": "number", "minimum": 0},
+            "audio_threshold": {"type": "number", "minimum": 0},
+            "start_percent": {"type": "number", "minimum": 0, "maximum": 1},
+            "end_percent": {"type": "number", "minimum": 0, "maximum": 1},
+            "warmup_steps": {"type": "integer", "minimum": 0},
+            "max_steps": {"type": "integer", "minimum": 1},
+            "video_metric_stride": {"type": "integer", "minimum": 1},
+            "audio_metric_stride": {"type": "integer", "minimum": 1},
+            "device": {"type": "string"},
+            "verbose": {"type": "boolean"}
+          }
+        },
+        "models": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "transformer": {"type": "string", "minLength": 1},
+            "text_encoder": {"type": "string", "minLength": 1},
+            "turbo_lora": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
     "generation": {
       "type": "object", "additionalProperties": false, "required": ["explore", "keep"],
       "properties": {"explore": {"$ref": "#/$defs/profile"}, "keep": {"$ref": "#/$defs/profile"}}

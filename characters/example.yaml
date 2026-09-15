@@ -1,0 +1,31 @@
+id: knight
+display_name: Knight
+
+references:
+  - id: primary
+    file: assets/references/knight/knight_primary.png
+    role: identity and opening composition
+    picture_label: Picture 1
+
+  - id: face
+    file: assets/references/knight/knight_face.png
+    role: face and eye detail
+    picture_label: Picture 2
+
+  - id: weapon
+    file: assets/references/knight/knight_weapon.png
+    role: weapon and costume structure
+    picture_label: Picture 3
+
+identity:
+  gender: adult_female
+  style: 2D anime game illustration
+  invariant_features:
+    - silver hair
+    - blue eyes
+    - dark armor
+    - red cape
+
+background_policy:
+  type: neutral
+  description: plain light-gray studio background

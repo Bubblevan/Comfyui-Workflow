@@ -21,6 +21,15 @@ runs/YYYY-MM-DD/<run_id>/    prompt, workflow snapshot, and run.json
 
 `ComfyUI/` 当前作为 pinned-in-repository upstream tree 保留；Harness 的 workflow、脚本和 provenance 与其分开。升级管理见 `COMFYUI_COMMIT`（若部署环境固定了上游 commit，请写入该文件）。
 
+## 本地 NSFW library
+
+成人向素材先进入独立的 [`library/nsfw/`](library/nsfw/)，以角色无关的 prompt cards、H3 兼容性参数、来源和审核状态保存；确认稳定后，再通过 `scripts/nsfw_library.py materialize` 物化为正式 `shots/` manifest。第一批条目只覆盖明确成年虚构角色的非露骨视觉状态、姿态和镜头控制，并要求明确同意的 roleplay / fantasy 语境。校验入口：
+
+```powershell
+python scripts/nsfw_library.py validate
+python scripts/nsfw_library.py list
+```
+
 ## 快速开始
 
 使用仓库内运行时（Windows）：
@@ -42,7 +51,41 @@ runs/YYYY-MM-DD/<run_id>/    prompt, workflow snapshot, and run.json
 8. QC：`python scripts/h3.py qc RUN_ID`；
 9. accept/reject：`python scripts/h3.py accept RUN_ID frame_003` 或 `reject`。
 
-Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep 默认约 0.75 MP / Turbo / 8 steps / 1 take。已有 H3 成功参数不会被 Harness 重写。
+Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep 默认约 0.75 MP / Turbo / 8 steps / 1 take。主干默认使用参考 workflow 的 `match` reference-size、`euler + simple`、H3 flow shift `12/3` 和 Comfy Kitchen attention；shot 的 `runtime` 只用于覆盖这些值或进行可追溯的加速消融实验。
+
+## H3 主干运行参数
+
+参考 workflow 中实际接入主链的稳定参数已经合并进 canonical API graph：
+
+| 能力 | 主干默认 | 说明 |
+| --- | --- | --- |
+| 多参考图尺寸 | `match` | 以目标尺寸匹配参考图，保留多图语义 |
+| 采样 | `euler` | 参考 H3 workflow 的采样器，仍支持 shot 级覆盖 |
+| 调度 | `simple` | 与参考 workflow 对齐，仍支持 shot 级覆盖 |
+| H3 flow shift | video `12` / audio `3` | 通过 `MiniMaxH3SigmaShift` 接入模型链 |
+| dense attention | Comfy Kitchen | 当前 H3 主干的正收益默认后端 |
+| SageAttention | 已安装、显式启用 | KJNodes + SageAttention 2，作为 SM89 消融后端 |
+| timestep cache | 仅显式启用 | 参考 workflow 中为 bypass，可能改变质量，不默认打开 |
+
+实验时可以只覆盖需要比较的参数，例如：
+
+```yaml
+runtime:
+  attention:
+    backend: sage
+    sage_attention: auto
+    allow_compile: false
+```
+
+重复 backend 的 API 级消融可复现：
+
+```powershell
+python scripts/benchmark_h3_runtime.py shots/nun/shot01_idle.yaml `
+  --api-url http://127.0.0.1:8189 --profile explore --seed 424242 `
+  --variants mainline pytorch sage
+```
+
+当前 Ada/SM89 机器的实测记录见 [`benchmarks/`](benchmarks/)。
 
 ## Prompt 与参考图
 

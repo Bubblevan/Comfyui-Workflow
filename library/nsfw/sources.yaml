@@ -1,0 +1,60 @@
+schema_version: 1
+captured_from: user_provided_research
+last_reviewed: 2026-09-16
+sources:
+  - id: h3_prompt_guide_ref
+    kind: official_prompt_guide
+    url: https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/docs/VIDEO_PROMPT_WRITING_GUIDE_ref_en.md
+    used_for:
+      - six_section_prompt_layout
+      - reference_generation_semantics
+      - timeline_first_description
+  - id: comfyui_h3_r2v_template
+    kind: official_workflow_template
+    url: https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_r2v.json
+    used_for:
+      - Ref2VA_workflow_parameters
+      - reference_count_and_roles
+      - sampler_scheduler_notes
+  - id: hear_meman_h3_loras
+    kind: model_card_and_examples
+    url: https://huggingface.co/Hearmeman/minimax-h3-loras?not-for-all-audiences=true
+    used_for:
+      - action_vs_anatomy_adapter_separation
+      - long_caption_distribution
+      - trigger_and_strength_metadata_fields
+  - id: aftermidnight_h3_ref2va
+    kind: model_card
+    url: https://huggingface.co/SexGod1979/AfterMidnight-MiniMax-H3-NSFW/blob/main/README.md
+    used_for:
+      - Ref2VA_compatibility_notes
+      - Euler_beta_A_B_test_note
+    license_action: verify_before_download_or_redistribution
+  - id: civitai_h3_workflow
+    kind: community_workflow
+    url: https://civitai.com/models/2830065/minimax-h3-int8int4-convrot
+    used_for:
+      - generation_metadata_fields
+      - workflow_and_sample_tracking
+    license_action: verify_before_download_or_redistribution
+  - id: fast_minimax_h3_workflow
+    kind: community_workflow
+    url: https://civitai.com/models/2906467/fast-minimax-h3
+    used_for:
+      - long_form_prompt_examples
+      - multi_reference_metadata_fields
+    license_action: verify_before_download_or_redistribution
+  - id: stefan_h3_workflows_hf
+    kind: author_workflow_repository
+    url: https://huggingface.co/StefanFalkok/Minimax_H3_Workflows/tree/main/Minimax%20H3
+    used_for:
+      - ref2v_workflow_reference
+      - prompt_generator_reference
+      - cache_and_attention_reference
+    license_action: verify_before_redistribution
+  - id: isekai_action_json
+    kind: local_action_dictionary
+    path: D:/下载/IsekaiStory/diffusion/configs/action.json
+    used_for:
+      - migrated_action_prompt_library
+    license_action: preserve_source_metadata

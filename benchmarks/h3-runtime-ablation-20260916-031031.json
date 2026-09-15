@@ -1,0 +1,91 @@
+{
+  "shot": "shots/nun/shot01_idle.yaml",
+  "api_url": "http://127.0.0.1:8192",
+  "profile": "explore",
+  "seed": 424242,
+  "variants": [
+    {
+      "variant": "sage",
+      "status": "completed",
+      "error": null,
+      "prompt_id": "49b2ca56-35ab-406d-a9db-cbe178592b70",
+      "seed": 424242,
+      "profile": "explore",
+      "runtime": {
+        "ref_image_size": "match",
+        "sampler": "euler",
+        "scheduler": "simple",
+        "model_shift": {
+          "enabled": true,
+          "shift_video": 12.0,
+          "shift_audio": 3.0
+        },
+        "attention": {
+          "backend": "sage",
+          "sage_attention": "auto",
+          "allow_compile": false
+        },
+        "cache": {
+          "enabled": false
+        }
+      },
+      "sampler": "euler",
+      "scheduler": "simple",
+      "node_classes": {
+        "MiniMaxH3SigmaShift": 1,
+        "ModelAttentionBackend": 0,
+        "PathchSageAttentionKJ": 1,
+        "MiniMaxH3MemoryEfficientSageAttentionPatch": 1,
+        "AGSoftMiniMaxH3Cache": 0
+      },
+      "elapsed_seconds": 4.106,
+      "wait_seconds": 4.027,
+      "output_video": [
+        "output/video/bench-20260916-031031-shot01_idle_free_3q_front-explore-sage-424242-721143_00001_.mp4"
+      ],
+      "measured_at": "2026-09-15T19:10:35.781182+00:00"
+    },
+    {
+      "variant": "sage",
+      "status": "completed",
+      "error": null,
+      "prompt_id": "2e023e8d-809b-4ae9-9448-e4c01dac338f",
+      "seed": 424242,
+      "profile": "explore",
+      "runtime": {
+        "ref_image_size": "match",
+        "sampler": "euler",
+        "scheduler": "simple",
+        "model_shift": {
+          "enabled": true,
+          "shift_video": 12.0,
+          "shift_audio": 3.0
+        },
+        "attention": {
+          "backend": "sage",
+          "sage_attention": "auto",
+          "allow_compile": false
+        },
+        "cache": {
+          "enabled": false
+        }
+      },
+      "sampler": "euler",
+      "scheduler": "simple",
+      "node_classes": {
+        "MiniMaxH3SigmaShift": 1,
+        "ModelAttentionBackend": 0,
+        "PathchSageAttentionKJ": 1,
+        "MiniMaxH3MemoryEfficientSageAttentionPatch": 1,
+        "AGSoftMiniMaxH3Cache": 0
+      },
+      "elapsed_seconds": 4.071,
+      "wait_seconds": 4.046,
+      "output_video": [
+        "output/video/bench-20260916-031035-shot01_idle_free_3q_front-explore-sage-424242-a1bd73_00001_.mp4"
+      ],
+      "measured_at": "2026-09-15T19:10:39.877645+00:00"
+    }
+  ],
+  "created_at": "2026-09-15T19:10:31.545018+00:00"
+}

@@ -1,0 +1,68 @@
+schema_version: 1
+id: pose.composed_seated
+version: 1
+title: Composed seated pose
+category: pose
+tags:
+  - pose
+  - seated
+  - single-subject
+  - non-explicit
+
+safety:
+  adult_only: true
+  fictional_only: true
+  consent_model: explicit_roleplay
+  prohibited_contexts:
+    - minors_or_age_ambiguous_characters
+    - non_consensual_sexual_activity
+    - real_person_sexualization
+
+prompt:
+  opening:
+    framing: medium_full
+    view: three_quarter_front
+    description: >
+      The adult fictional character is already seated in a composed, balanced pose on a plain
+      studio background. The torso, hands, face, and clothing are clearly visible.
+  beats:
+    - start: 0.0
+      end: 2.0
+      description: >
+        The character settles into the seated posture with relaxed shoulders, aligned knees,
+        and hands resting naturally without covering the face.
+    - start: 2.0
+      end: 5.0
+      description: >
+        The character holds the pose steadily with only subtle breathing and one natural blink.
+        Keep the composition stable for use as a pose control.
+  ending: Stable three-quarter seated pose with clear face and hands.
+  constraints:
+    - exactly one adult fictional character
+    - preserve identity, clothing, body proportions, and hand count
+    - no explicit sexual action, props, extra characters, text, or watermark
+    - no scene cuts or camera orbit
+
+compatibility:
+  model_family: MiniMax H3 Ref2VA
+  reference_mode: reference_generation
+  recommended_duration: 5
+  recommended_references:
+    - primary
+  sampler: Euler
+  scheduler: beta
+  notes:
+    - Use as a neutral pose card before adding an effect card.
+
+provenance:
+  source_type: original_local
+  source_ids:
+    - h3_prompt_guide_ref
+  license_status: local_original
+  notes: Neutral composition card retained in the adult-only library for consistent metadata.
+
+review:
+  status: reviewed
+  reviewer: local-harness
+  last_reviewed: '2026-09-16'
+  known_issues: []

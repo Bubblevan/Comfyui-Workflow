@@ -8,5 +8,25 @@
 - Harness tests：运行 `runtime/python/python.exe -m pytest`
 - 运行时目录不提交到 Git，迁移仓库时需要整体复制。
 
+## SageAttention / Windows
+
+当前本机 ComfyUI 环境已验证：Torch `2.10.0+cu130`、Python `3.13.11`、RTX 4090
+Laptop GPU。`runtime/venv` 已安装 `sageattention 2.2.0+cu130torch2.10.0andhigher.post6`
+和 `triton-windows 3.7.1.post27`，`ComfyUI/custom_nodes/ComfyUI-KJNodes` 已安装并注册
+MiniMax H3 的 Sage 节点。
+
+启动脚本会自动把 Triton 自带的 Windows C 编译器和 CUDA 运行时路径注入当前进程，避免
+系统里的其他 CUDA / GCC 抢先被 Triton 使用。需要让 ComfyUI 的全局 attention 走 Sage 时：
+
+```powershell
+.\scripts\start_comfyui.ps1 -UseSageAttention
+```
+
+不加这个开关时，canonical H3 graph 使用主干默认的 Comfy Kitchen attention、H3 sigma
+shift 以及 `euler`/`simple` 采样组合；这个开关只影响没有显式选择 model backend 的全局
+ComfyUI 路径。shot 的 `runtime.attention.backend: sage` 仍可按单个 H3 流程显式插入参考
+workflow 使用的两个 KJ patch 节点。Sage 与 H3 的 memory-efficient patch 都是实验性路径，
+正式批量生成前应使用固定 seed 做一次质量和稳定性 A/B。
+
 Harness 依赖清单见仓库根目录的 `requirements-harness.txt`。模型路径唯一来自
 `configs/extra_model_paths.yaml`。

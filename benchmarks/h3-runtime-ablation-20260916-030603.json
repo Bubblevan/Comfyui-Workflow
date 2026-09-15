@@ -1,0 +1,132 @@
+{
+  "shot": "shots/nun/shot01_idle.yaml",
+  "api_url": "http://127.0.0.1:8192",
+  "profile": "explore",
+  "seed": 424242,
+  "variants": [
+    {
+      "variant": "mainline",
+      "status": "completed",
+      "error": null,
+      "prompt_id": "c1978b2f-c60a-45bd-b34b-62ec389d53a3",
+      "seed": 424242,
+      "profile": "explore",
+      "runtime": {
+        "ref_image_size": "match",
+        "sampler": "euler",
+        "scheduler": "simple",
+        "model_shift": {
+          "enabled": true,
+          "shift_video": 12.0,
+          "shift_audio": 3.0
+        },
+        "attention": {
+          "backend": "kitchen",
+          "sage_attention": "auto",
+          "allow_compile": false
+        },
+        "cache": {
+          "enabled": false
+        }
+      },
+      "sampler": "euler",
+      "scheduler": "simple",
+      "node_classes": {
+        "MiniMaxH3SigmaShift": 1,
+        "ModelAttentionBackend": 1,
+        "PathchSageAttentionKJ": 0,
+        "MiniMaxH3MemoryEfficientSageAttentionPatch": 0,
+        "AGSoftMiniMaxH3Cache": 0
+      },
+      "elapsed_seconds": 6.108,
+      "wait_seconds": 6.021,
+      "output_video": [
+        "output/video/bench-20260916-030603-shot01_idle_free_3q_front-explore-mainline-424242-5a84ff_00001_.mp4"
+      ],
+      "measured_at": "2026-09-15T19:06:09.712353+00:00"
+    },
+    {
+      "variant": "pytorch",
+      "status": "completed",
+      "error": null,
+      "prompt_id": "5e611560-cb9b-4acd-844b-29c8009ed37e",
+      "seed": 424242,
+      "profile": "explore",
+      "runtime": {
+        "ref_image_size": "match",
+        "sampler": "euler",
+        "scheduler": "simple",
+        "model_shift": {
+          "enabled": true,
+          "shift_video": 12.0,
+          "shift_audio": 3.0
+        },
+        "attention": {
+          "backend": "default",
+          "sage_attention": "auto",
+          "allow_compile": false
+        },
+        "cache": {
+          "enabled": false
+        }
+      },
+      "sampler": "euler",
+      "scheduler": "simple",
+      "node_classes": {
+        "MiniMaxH3SigmaShift": 1,
+        "ModelAttentionBackend": 0,
+        "PathchSageAttentionKJ": 0,
+        "MiniMaxH3MemoryEfficientSageAttentionPatch": 0,
+        "AGSoftMiniMaxH3Cache": 0
+      },
+      "elapsed_seconds": 144.983,
+      "wait_seconds": 144.949,
+      "output_video": [
+        "output/video/bench-20260916-030609-shot01_idle_free_3q_front-explore-pytorch-424242-a4e0ee_00001_.mp4"
+      ],
+      "measured_at": "2026-09-15T19:08:34.720648+00:00"
+    },
+    {
+      "variant": "sage",
+      "status": "completed",
+      "error": null,
+      "prompt_id": "a0b87391-f5bc-40d6-a393-9be082438643",
+      "seed": 424242,
+      "profile": "explore",
+      "runtime": {
+        "ref_image_size": "match",
+        "sampler": "euler",
+        "scheduler": "simple",
+        "model_shift": {
+          "enabled": true,
+          "shift_video": 12.0,
+          "shift_audio": 3.0
+        },
+        "attention": {
+          "backend": "sage",
+          "sage_attention": "auto",
+          "allow_compile": false
+        },
+        "cache": {
+          "enabled": false
+        }
+      },
+      "sampler": "euler",
+      "scheduler": "simple",
+      "node_classes": {
+        "MiniMaxH3SigmaShift": 1,
+        "ModelAttentionBackend": 0,
+        "PathchSageAttentionKJ": 1,
+        "MiniMaxH3MemoryEfficientSageAttentionPatch": 1,
+        "AGSoftMiniMaxH3Cache": 0
+      },
+      "elapsed_seconds": 90.522,
+      "wait_seconds": 90.515,
+      "output_video": [
+        "output/video/bench-20260916-030834-shot01_idle_free_3q_front-explore-sage-424242-6d1960_00001_.mp4"
+      ],
+      "measured_at": "2026-09-15T19:10:05.272683+00:00"
+    }
+  ],
+  "created_at": "2026-09-15T19:06:03.469860+00:00"
+}

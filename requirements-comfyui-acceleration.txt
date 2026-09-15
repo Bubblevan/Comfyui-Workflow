@@ -1,0 +1,5 @@
+# Windows / Python 3.13 / Torch 2.10 + CUDA 13.0 profile used by this repo.
+numpy==2.3.5
+stanza==1.10.1
+triton-windows==3.7.1.post27
+sageattention @ https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post6/sageattention-2.2.0%2Bcu130torch2.10.0andhigher.post6-cp310-abi3-win_amd64.whl

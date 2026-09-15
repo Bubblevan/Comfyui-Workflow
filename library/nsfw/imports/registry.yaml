@@ -1,0 +1,13 @@
+schema_version: 1
+imports:
+  - id: isekai.action
+    file: action.json
+    source_file: D:/下载/IsekaiStory/diffusion/configs/action.json
+    source_type: local_action_dictionary
+    format: json_object_map
+    entry_count: 654
+    bytes: 81585
+    sha256: 2CE4C7920F7F91743C6D0F9B035D052915D336C7FD15B011FB94C1067EFA0C4E
+    normalization: none
+    key_policy: case_sensitive
+    value_policy: preserve_original_prompt_strings

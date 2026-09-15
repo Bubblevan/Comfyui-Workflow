@@ -1,0 +1,83 @@
+schema_version: 1
+snapshot_id: stefan_h3_v22
+display_name: StefanFalkok MiniMax H3 workflow snapshot
+captured_from: user_provided_local_directory
+source_directory: D:/下载/minimaxH3WorkflowsT2VI2VFirstLast_v22CacheFaster20_3206639/Minimax H3
+source_author: StefanFalkok
+source_hf: https://huggingface.co/StefanFalkok/Minimax_H3_Workflows/tree/main/Minimax%20H3
+license_action: verify_before_redistribution
+
+files:
+  - id: stefan.h3.base_prompt_generator
+    file: Minimax H3 Base Prompt generator.json
+    bytes: 58609
+    sha256: 9E194CE006A7EAAF2AFA96BA45788BFBE0100C1A5917673D5D28609F563A25A3
+    role: base_prompt_generator_reference
+    recommended: false
+    node_count: 13
+  - id: stefan.h3.i2v
+    file: Minimax H3 I2V.json
+    bytes: 67962
+    sha256: D334EBF61BEAC0D40865B6766DD2BA3DCE9CB4F4691172EDDE6869603A40AEA5
+    role: i2v_workflow_reference
+    recommended: false
+    node_count: 52
+  - id: stefan.h3.ref2v_prompt_generator
+    file: Minimax H3 Ref2V Prompt generator.json
+    bytes: 78462
+    sha256: 7ACB887100AB01524A6396E77754B151D80EA68A880CB2B3028079D9FDBFAC3B
+    role: ref2v_prompt_generator_reference
+    recommended: true
+    node_count: 20
+  - id: stefan.h3.ref2v
+    file: Minimax H3 Ref2V.json
+    bytes: 72776
+    sha256: 9DC7CB629AC835C63C00F271890A3B339853166A63041B6B4F8877381737377B
+    role: ref2v_generation_reference
+    recommended: true
+    node_count: 64
+
+capabilities:
+  prompt_generator:
+    node_type: TextGenerateLTX2Prompt
+    guide_node_title: MINIMAX H3 PROMPT INSTRUCT
+    h3_sections:
+      - subject_definitions
+      - summary
+      - retention_analysis
+      - detailed_description
+      - overall_soundscape
+      - non_diegetic_music
+    local_policy: reference_only
+    local_replacement: deterministic_h3_prompt_compiler
+  ref2v:
+    node_type: MiniMaxH3ReferenceToVideo
+    image_reference_slots: 9
+    video_reference_slots: 3
+    standalone_audio_reference_slots: 3
+    video_audio_reference_slots: 1
+    reference_resolution: 832x480
+    reference_length_frames: 124
+    ref_image_size: match
+  performance_nodes:
+    cache: AGSoftMiniMaxH3Cache
+    attention_options:
+      - MiniMaxH3MemoryEfficientSageAttentionPatch
+      - PathchSageAttentionKJ
+      - ModelAttentionBackend
+    lora_controls:
+      - Power Lora Loader (rgthree)
+      - TriggerWord Toggle (LoraManager)
+      - Lora Loader (LoraManager)
+
+model_references:
+  transformer: minimaxH3\\minimax_h3_ref2va_int8_convrot.safetensors
+  text_encoder: qwen3vl_32b_minimax_h3_ultra_uncensored_heretic_int8_convrot.safetensors
+  prompt_encoder: gemma4_12b_it_uncensored_heretic_int8_convrot.safetensors
+  note: These names are reference-workflow defaults; they are not auto-enabled in the local harness.
+
+handling_notes:
+  - The four JSON files are preserved byte-for-byte from the user-provided directory and tracked by hash.
+  - The prompt-generator workflow contains adult-oriented example text in its widget values; it is retained as workflow provenance, not copied into local prompt cards or auto-injected into generation.
+  - Heretic encoder entries are conditioning-model references, not motion LoRAs.
+  - The local harness keeps deterministic YAML compilation as the default production path.

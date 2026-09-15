@@ -1,0 +1,44 @@
+schema_version: 1
+library_id: h3-nsfw-local
+display_name: Local NSFW prompt cards for MiniMax H3 Ref2VA
+purpose: >
+  A local, auditable library of reusable adult-only prompt cards and explicit H3 shot recipes.
+
+policy:
+  adult_only: true
+  fictional_only: true
+  consent_model: explicit_roleplay
+  prohibited_contexts:
+    - minors_or_age_ambiguous_characters
+    - real_person_sexualization
+    - non_consensual_sexual_activity
+    - sexual_violence
+
+categories:
+  - effects
+  - poses
+  - camera
+  - motion
+
+entries:
+  - id: effect.hypnosis.loss_of_catchlights
+    path: entries/effects/hypnosis_loss_of_catchlights.yaml
+  - id: effect.hypnosis.dark_pink_irises
+    path: entries/effects/hypnosis_dark_pink_irises.yaml
+  - id: effect.hypnosis.concentric_ring_eyes
+    path: entries/effects/hypnosis_concentric_ring_eyes.yaml
+  - id: effect.charm.heart_highlight
+    path: entries/effects/charm_heart_highlight.yaml
+  - id: pose.composed_seated
+    path: entries/poses/composed_seated.yaml
+  - id: camera.medium_closeup_eye_detail
+    path: entries/camera/medium_closeup_eye_detail.yaml
+
+recipes:
+  - id: shot_hypnosis_eye_transition
+    path: recipes/hypnosis_eye_transition.yaml
+
+imports:
+  - id: isekai.action
+    path: imports/action.json
+    registry: imports/registry.yaml

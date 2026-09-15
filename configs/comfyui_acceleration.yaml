@@ -1,0 +1,30 @@
+profile: windows-ada-sm89
+python: runtime/venv/Scripts/python.exe
+torch: 2.10.0+cu130
+python_version: '3.13'
+hardware_class: nvidia-ada-sm89
+
+packages:
+  sageattention: 2.2.0+cu130torch2.10.0andhigher.post6
+  triton_windows: 3.7.1.post27
+  numpy: 2.3.5
+  stanza: 1.10.1
+
+custom_nodes:
+  - name: ComfyUI-KJNodes
+    repository: https://github.com/kijai/ComfyUI-KJNodes.git
+    revision: d3cfe21625e5170126ce06fbfcfe1d88108688c3
+    capabilities:
+      - PathchSageAttentionKJ
+      - MiniMaxH3MemoryEfficientSageAttentionPatch
+  - name: comfyui-AGSoft
+    repository: https://github.com/Art-xmaster/comfyui-AGSoft.git
+    revision: 4d508dff4410ac1ae561d1527217cdbda742eb38
+    capabilities:
+      - AGSoftMiniMaxH3Cache
+
+validation:
+  startup_switch: -UseSageAttention
+  sage_backend: sage
+  default_backend: kitchen
+  compile: false

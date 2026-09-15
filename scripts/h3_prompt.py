@@ -125,6 +125,29 @@ def compile_prompt(character: dict[str, Any], shot: dict[str, Any]) -> str:
         summary = f"[keyframe completion] Generate one continuous {duration}-second shot using the selected picture references at the explicitly described keyframe moments."
     else:
         summary = f"[keyframe completion] Generate one continuous {duration}-second single-character shot beginning from <Picture 1>. Preserve <Subject 1> while adding the controlled performance described below."
+    audio = shot.get("audio") or {}
+    audio_policy = audio.get("policy", "silent")
+    if audio_policy == "dialogue":
+        language = audio.get("language", "the specified language")
+        voice = audio.get("voice") or {}
+        voice_description = ", ".join(str(voice[key]) for key in ("gender", "age", "style") if voice.get(key)) or "natural, clear delivery"
+        dialogue_lines = []
+        for line in audio.get("dialogue") or []:
+            timing = f"{line.get('start', 0)}-{line.get('end', duration)}s"
+            delivery = f", {line['delivery']}" if line.get("delivery") else ""
+            dialogue_lines.append(f"{timing}: {line.get('speaker', 'Subject 1')} says exactly \"{line.get('text', '')}\"{delivery}.")
+        soundscape = "Language: " + str(language) + ".\nVoice: " + voice_description + ".\n" + "\n".join(dialogue_lines)
+        if audio.get("ambience"):
+            soundscape += "\nAmbience: " + str(audio["ambience"]) + "."
+        soundscape += "\nDo not generate singing or additional dialogue."
+        music = str(audio.get("music") or "none")
+        music_section = "N/A. Do not generate non-diegetic music." if music.lower() == "none" else music
+    elif audio_policy == "soundscape":
+        soundscape = str(audio.get("ambience") or "Generate only the described natural soundscape.")
+        music_section = str(audio.get("music") or "N/A. Do not generate non-diegetic music.")
+    else:
+        soundscape = "N/A. Do not generate dialogue, singing, effects, or environmental ambience."
+        music_section = "N/A. Treat the deliverable as silent."
     return "\n\n".join(
         [
             "subject_definitions:\n" + subject_definitions,
@@ -133,8 +156,8 @@ def compile_prompt(character: dict[str, Any], shot: dict[str, Any]) -> str:
             + ref_retention
             + "\n<Subject 2> (appears in [Shot 1]): fully_preserved - keep the background unchanged.",
             "detailed_description:\n" + detailed,
-            "overall_soundscape:\nN/A. Do not generate dialogue, singing, effects, or environmental ambience.",
-            "non_diegetic_music:\nN/A. Treat the deliverable as silent.",
+            "overall_soundscape:\n" + soundscape,
+            "non_diegetic_music:\n" + music_section,
         ]
     )
 

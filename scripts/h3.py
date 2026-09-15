@@ -31,6 +31,21 @@ CONTRACT_PATH = ROOT / "workflows" / "h3_ref2va_contract.json"
 MODEL_CONFIG_PATH = ROOT / "configs" / "extra_model_paths.yaml"
 RUNS_DIR = ROOT / "runs"
 OUTPUT_DIR = ROOT / "output"
+VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".webm", ".avi"}
+
+# These are the active, non-bypassed H3 settings from the reference workflow.
+# They are part of the canonical path now; a shot-level runtime block only
+# overrides them for a deliberate experiment or a model-specific exception.
+DEFAULT_RUNTIME: dict[str, Any] = {
+    "ref_image_size": "match",
+    "sampler": "euler",
+    "scheduler": "simple",
+    "model_shift": {"enabled": True, "shift_video": 12.0, "shift_audio": 3.0},
+    "attention": {"backend": "kitchen", "sage_attention": "auto", "allow_compile": False},
+    # Cache nodes are retained as an explicit experiment because the reference
+    # workflow bypasses them and cache thresholds can trade quality for speed.
+    "cache": {"enabled": False},
+}
 
 
 class HarnessError(RuntimeError):
@@ -336,10 +351,128 @@ def _node_id(graph: dict[str, Any], preferred: list[str], used: set[str]) -> str
     return str(candidate)
 
 
-def build_graph(prompt: str, references: list[dict[str, Any]], profile: dict[str, Any], seed: int, duration: float, prefix: str, image_names: list[str] | None = None) -> dict[str, Any]:
+def _add_model_patch(graph: dict[str, Any], used: set[str], class_type: str, inputs: dict[str, Any]) -> str:
+    node_id = _node_id(graph, [], used)
+    graph[node_id] = {"class_type": class_type, "inputs": inputs}
+    return node_id
+
+
+def effective_runtime(overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the canonical H3 runtime with shot-level overrides merged in."""
+    result = copy.deepcopy(DEFAULT_RUNTIME)
+
+    def merge(destination: dict[str, Any], source: dict[str, Any]) -> None:
+        for key, value in source.items():
+            if isinstance(value, dict) and isinstance(destination.get(key), dict):
+                merge(destination[key], value)
+            else:
+                destination[key] = copy.deepcopy(value)
+
+    if overrides:
+        merge(result, overrides)
+    return result
+
+
+def _apply_runtime_profile(graph: dict[str, Any], contract: dict[str, Any], runtime: dict[str, Any] | None) -> dict[str, Any]:
+    """Apply the canonical H3 runtime and any explicit shot-level overrides.
+
+    Positive reference-workflow defaults are inserted for every graph. Experimental
+    attention/cache paths remain explicit overrides so an A/B run is reproducible.
+    """
+    runtime = effective_runtime(runtime)
+    ref_image_size = runtime.get("ref_image_size", "max")
+    graph[contract["reference_node"]]["inputs"]["ref_image_size"] = ref_image_size
+
+    if runtime.get("sampler"):
+        graph[contract["sampler"]]["inputs"]["sampler_name"] = runtime["sampler"]
+    if runtime.get("scheduler"):
+        graph[contract["scheduler"]]["inputs"]["scheduler"] = runtime["scheduler"]
+
+    models = runtime.get("models") or {}
+    if models.get("transformer"):
+        graph["127"]["inputs"]["unet_name"] = models["transformer"]
+    if models.get("text_encoder"):
+        graph["128"]["inputs"]["clip_name"] = models["text_encoder"]
+    if models.get("turbo_lora"):
+        graph["145"]["inputs"]["lora_name"] = models["turbo_lora"]
+
+    used: set[str] = set()
+    current_model = "127"
+    model_shift = runtime.get("model_shift") or {}
+    if model_shift.get("enabled"):
+        current_model = _add_model_patch(
+            graph,
+            used,
+            "MiniMaxH3SigmaShift",
+            {
+                "model": [current_model, 0],
+                "shift_video": float(model_shift.get("shift_video", 12)),
+                "shift_audio": float(model_shift.get("shift_audio", 3)),
+            },
+        )
+
+    attention = runtime.get("attention") or {}
+    backend = attention.get("backend", "default")
+    if backend == "kitchen":
+        current_model = _add_model_patch(
+            graph,
+            used,
+            "ModelAttentionBackend",
+            {"model": [current_model, 0], "attention": "comfy kitchen attention"},
+        )
+    elif backend == "sage":
+        current_model = _add_model_patch(
+            graph,
+            used,
+            "PathchSageAttentionKJ",
+            {
+                "model": [current_model, 0],
+                "sage_attention": attention.get("sage_attention", "auto"),
+                "allow_compile": bool(attention.get("allow_compile", False)),
+            },
+        )
+        current_model = _add_model_patch(
+            graph,
+            used,
+            "MiniMaxH3MemoryEfficientSageAttentionPatch",
+            {"model": [current_model, 0]},
+        )
+    elif backend != "default":
+        raise HarnessError(f"unsupported attention backend: {backend}")
+
+    cache = runtime.get("cache") or {}
+    if cache.get("enabled"):
+        current_model = _add_model_patch(
+            graph,
+            used,
+            "AGSoftMiniMaxH3Cache",
+            {
+                "model": [current_model, 0],
+                "profile": cache.get("profile", "Balanced"),
+                "video_threshold": float(cache.get("video_threshold", 0.12)),
+                "audio_threshold": float(cache.get("audio_threshold", 0.1)),
+                "start_percent": float(cache.get("start_percent", 0.1)),
+                "end_percent": float(cache.get("end_percent", 0.9)),
+                "warmup_steps": int(cache.get("warmup_steps", 2)),
+                "max_steps": int(cache.get("max_steps", 1)),
+                "video_metric_stride": int(cache.get("video_metric_stride", 12)),
+                "audio_metric_stride": int(cache.get("audio_metric_stride", 6)),
+                "device": cache.get("device", "auto"),
+                "verbose": bool(cache.get("verbose", True)),
+            },
+        )
+
+    if current_model != "127":
+        graph["145"]["inputs"]["model"] = [current_model, 0]
+        graph["141"]["inputs"]["on_false"] = [current_model, 0]
+    return runtime
+
+
+def build_graph(prompt: str, references: list[dict[str, Any]], profile: dict[str, Any], seed: int, duration: float, prefix: str, image_names: list[str] | None = None, runtime: dict[str, Any] | None = None) -> dict[str, Any]:
     graph = json.loads(WORKFLOW_PATH.read_text(encoding="utf-8"))
     validate_workflow_contract(graph)
     contract = load_contract()
+    runtime = _apply_runtime_profile(graph, contract, runtime)
     graph[contract["megapixels"]]["inputs"]["megapixels"] = profile["megapixels"]
     graph[contract["seed"]]["inputs"]["noise_seed"] = int(seed)
     graph[contract["duration"]]["inputs"]["value"] = duration
@@ -365,7 +498,7 @@ def build_graph(prompt: str, references: list[dict[str, Any]], profile: dict[str
         node_id = _node_id(graph, preferred, used)
         ref_node["inputs"][f"ref_images.ref_image_{index}"] = [node_id, 0]
         graph[node_id] = {"class_type": "LoadImage", "inputs": {"image": image_name, "upload": "image"}}
-    ref_node["inputs"]["ref_image_size"] = "max"
+    ref_node["inputs"]["ref_image_size"] = runtime["ref_image_size"]
     for stale_id in set(old_ids) - used:
         node = graph.get(stale_id)
         if node and node.get("class_type") == "LoadImage":
@@ -428,7 +561,9 @@ def _history_result(history: dict[str, Any], prompt_id: str) -> tuple[str, str |
     if status.get("completed") or status.get("status_str") == "success":
         outputs = []
         for node_output in (item.get("outputs") or {}).values():
-            for key in ("gifs", "videos", "video", "files"):
+            # ComfyUI's SaveVideo node currently reports video files under
+            # `images`, while other save nodes may use one of the legacy keys.
+            for key in ("gifs", "videos", "video", "files", "images"):
                 values = node_output.get(key, []) if isinstance(node_output, dict) else []
                 if isinstance(values, dict):
                     values = [values]
@@ -455,7 +590,7 @@ def resolve_outputs(outputs: list[dict[str, Any]]) -> list[str]:
     resolved = []
     for item in outputs:
         filename = item.get("filename")
-        if not filename:
+        if not filename or Path(str(filename)).suffix.lower() not in VIDEO_SUFFIXES:
             continue
         base = OUTPUT_DIR if item.get("type", "output") == "output" else ROOT / str(item.get("type"))
         path = base / str(item.get("subfolder", "")) / filename
@@ -486,6 +621,7 @@ def execute_run(shot_path: Path, seed: int, profile_name: str, api_url: str, tim
     validate_shot_structure(shot, str(shot_path))
     refs = selected_references(character, shot)
     profile = shot["generation"][profile_name]
+    runtime = effective_runtime(shot.get("runtime"))
     prompt = compile_prompt(character, shot)
     prompt_id = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
     run_id = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{shot['id']}-{profile_name}-{seed}-{uuid.uuid4().hex[:6]}"
@@ -494,7 +630,7 @@ def execute_run(shot_path: Path, seed: int, profile_name: str, api_url: str, tim
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(prompt, encoding="utf-8")
     image_names = stage_references(character, refs, character_path)
-    graph = build_graph(prompt, refs, profile, seed, shot["duration"], f"video/{run_id}", image_names)
+    graph = build_graph(prompt, refs, profile, seed, shot["duration"], f"video/{run_id}", image_names, runtime)
     workflow_snapshot = run_dir / "workflow.json"
     write_json(workflow_snapshot, graph)
     manifest: dict[str, Any] = {
@@ -508,6 +644,7 @@ def execute_run(shot_path: Path, seed: int, profile_name: str, api_url: str, tim
         "megapixels": profile["megapixels"],
         "steps": profile["steps"],
         "turbo": profile["turbo"],
+        "runtime": runtime,
         "references": [{"id": ref["id"], "file": ref.get("resolved_file", ref["file"]), "declared_file": ref["file"], "role": ref["role"], "picture_label": ref["picture_label"]} for ref in refs],
         "prompt_file": prompt_path.relative_to(ROOT).as_posix(),
         "workflow_file": WORKFLOW_PATH.relative_to(ROOT).as_posix(),
