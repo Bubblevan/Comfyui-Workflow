@@ -1,0 +1,8 @@
+h3:
+  base_path: ../models
+  diffusion_models: models/diffusion_models
+  text_encoders: models/text_encoders
+  loras: models/loras
+  vae: models/vae
+  model_patches: models/model_patches
+  embeddings: models/embeddings
