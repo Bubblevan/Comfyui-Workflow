@@ -1,0 +1,64 @@
+id: shot02_front_close
+character: nun
+reference_mode: reference_generation
+
+references:
+  - primary
+  - face
+
+duration: 5
+
+opening:
+  framing: medium_close_up
+  view: front
+  description: >
+    The character is shown in a newly generated front-facing medium close-up,
+    with the face centered and clearly visible.
+
+beats:
+  - start: 0.0
+    end: 2.0
+    description: >
+      She looks forward calmly and blinks once.
+  - start: 2.0
+    end: 3.8
+    description: >
+      She slightly tilts her head, shifts her gaze to the side, and softens her expression.
+  - start: 3.8
+    end: 5.0
+    description: >
+      She returns her gaze to the front and holds a composed expression.
+
+ending:
+  description: Stable front-facing close shot with clear eyes and calm expression.
+
+camera:
+  framing: medium_close_up
+  type: locked_off
+  amplitude: none
+  speed: still
+
+audio:
+  policy: silent
+
+constraints:
+  - exactly one character
+  - preserve blonde hair and purple-red eyes
+  - preserve face shape and eyelashes
+  - preserve 2D anime game illustration style
+  - no scene cuts
+  - no background clutter
+  - no text
+  - no watermark
+
+generation:
+  explore:
+    megapixels: 0.5
+    steps: 4
+    turbo: true
+    takes: 4
+  keep:
+    megapixels: 0.75
+    steps: 8
+    turbo: true
+    takes: 1

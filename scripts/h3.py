@@ -176,6 +176,18 @@ def validate_profile(profile: dict[str, Any], label: str) -> None:
         raise HarnessError(f"{label}: Turbo profiles must use 4-8 steps")
 
 
+def validate_shot_structure(shot: dict[str, Any], label: str) -> None:
+    beats = shot.get("beats") or []
+    if not beats and not (shot.get("action") or {}).get("description"):
+        raise HarnessError(f"{label}: provide action.description or beats")
+    previous_end = 0.0
+    for beat in beats:
+        start, end = float(beat["start"]), float(beat["end"])
+        if start < previous_end or end <= start or end > float(shot["duration"]):
+            raise HarnessError(f"{label}: beats must be ordered, non-overlapping, and within duration")
+        previous_end = end
+
+
 def load_contract() -> dict[str, Any]:
     return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
@@ -287,6 +299,7 @@ def validate_repository() -> list[str]:
     for path in shots:
         doc = load_document(path)
         validate_schema(doc, ROOT / "schemas" / "shot.schema.json", "shot")
+        validate_shot_structure(doc, str(path))
         validate_profile(doc["generation"]["explore"], f"{path} explore")
         validate_profile(doc["generation"]["keep"], f"{path} keep")
         shot_documents.append((path, doc))
@@ -470,6 +483,7 @@ def execute_run(shot_path: Path, seed: int, profile_name: str, api_url: str, tim
     character = load_document(character_path)
     validate_schema(character, ROOT / "schemas" / "character.schema.json", "character")
     validate_schema(shot, ROOT / "schemas" / "shot.schema.json", "shot")
+    validate_shot_structure(shot, str(shot_path))
     refs = selected_references(character, shot)
     profile = shot["generation"][profile_name]
     prompt = compile_prompt(character, shot)

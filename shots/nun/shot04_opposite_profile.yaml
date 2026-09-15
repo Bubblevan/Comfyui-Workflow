@@ -1,0 +1,67 @@
+id: shot04_opposite_profile
+character: nun
+reference_mode: reference_generation
+
+references:
+  - primary
+  - alternate
+  - face
+
+duration: 5
+
+opening:
+  framing: medium_full
+  view: opposite_profile
+  description: >
+    The character appears in a newly generated side-facing pose from the
+    opposite direction of the primary reference, while maintaining the same
+    identity, hairstyle, head covering, and clothing structure.
+
+beats:
+  - start: 0.0
+    end: 1.8
+    description: She stands quietly and keeps a stable side-facing posture.
+  - start: 1.8
+    end: 3.8
+    description: >
+      She slowly turns her head slightly toward the camera and adjusts her posture.
+  - start: 3.8
+    end: 5.0
+    description: >
+      She settles into a stable opposite-side standing pose and holds the ending posture.
+
+ending:
+  description: Stable opposite-side standing pose with preserved costume structure.
+
+camera:
+  framing: medium_full
+  type: locked_off
+  amplitude: none
+  speed: still
+
+audio:
+  policy: silent
+
+constraints:
+  - exactly one character
+  - preserve blonde hair and purple-red eyes
+  - preserve black-and-white nun habit and black head covering
+  - preserve costume silhouette
+  - keep the opposite profile restrained and stable
+  - no scene cuts
+  - no extra characters
+  - no text
+  - no watermark
+  - plain light-gray background only
+
+generation:
+  explore:
+    megapixels: 0.5
+    steps: 4
+    turbo: true
+    takes: 4
+  keep:
+    megapixels: 0.75
+    steps: 8
+    turbo: true
+    takes: 1

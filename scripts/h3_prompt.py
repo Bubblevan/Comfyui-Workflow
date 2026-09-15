@@ -77,7 +77,7 @@ def compile_prompt(character: dict[str, Any], shot: dict[str, Any]) -> str:
     ref_definitions, ref_retention = _reference_lines(references)
     duration = shot["duration"]
     camera = shot["camera"]
-    action = " ".join(str(shot["action"]["description"]).split())
+    action = " ".join(str((shot.get("action") or {}).get("description", "")).split())
     background = character["background_policy"]["description"]
     mode = shot.get("reference_mode", "first_frame")
     free_mode = mode in {"free", "reference_generation", "storyboard"}

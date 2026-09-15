@@ -4,7 +4,7 @@
   "title": "H3 shot manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "character", "references", "duration", "action", "camera", "audio", "generation"],
+  "required": ["id", "character", "references", "duration", "camera", "audio", "generation"],
   "properties": {
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"},
     "character": {"type": "string", "minLength": 1},
@@ -23,6 +23,7 @@
       "properties": {"explore": {"$ref": "#/$defs/profile"}, "keep": {"$ref": "#/$defs/profile"}}
     }
   },
+  "anyOf": [{"required": ["action"]}, {"required": ["beats"]}],
   "$defs": {
     "profile": {
       "type": "object", "additionalProperties": false,
