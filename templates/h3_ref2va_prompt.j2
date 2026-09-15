@@ -1,18 +1,32 @@
+{% set mode = shot.get('reference_mode', 'first_frame') %}
 subject_definitions:
-<Subject 1> is the {{ character.identity.gender }} {{ character.identity.style }} character defined jointly by the selected reference pictures. Preserve {{ character.identity.invariant_features | join(', ') }}, stable facial proportions, colors, and linework.
-{% for reference in references %}{{ reference.picture_label }} is the {{ reference.role }} reference{% if reference.get('description') %}: {{ reference.get('description') }}{% endif %}.
-{% endfor %}<Subject 2> is {{ character.background_policy.description }} with no props, scenery, extra characters, particles, text, or watermark.
+{% if mode in ['free', 'reference_generation', 'storyboard'] %}<Subject 1> is the {{ character.identity.gender }} {{ character.identity.style }} character whose appearance is derived from {% for reference in references %}<{{ reference.picture_label }}>{% if not loop.last %}, {% endif %}{% endfor %}. Preserve {{ character.identity.invariant_features | join(', ') }}, stable facial proportions, colors, and linework. The selected pictures are appearance references only and are not fixed video frames.
+{% for reference in references %}<{{ reference.picture_label }}> supplies {{ reference.role }}{% if reference.get('description') %}: {{ reference.get('description') }}{% endif %}.
+{% endfor %}{% else %}<Subject 1> is the {{ character.identity.gender }} {{ character.identity.style }} character defined jointly by the selected reference pictures. Preserve {{ character.identity.invariant_features | join(', ') }}, stable facial proportions, colors, and linework.
+{% for reference in references %}<{{ reference.picture_label }}> is the {{ reference.role }} reference{% if reference.get('description') %}: {{ reference.get('description') }}{% endif %}.
+{% endfor %}{% endif %}<Subject 2> is {{ character.background_policy.description }} with no props, scenery, extra characters, particles, text, or watermark.
 
 summary:
-[reference-to-video] Generate one continuous {{ shot.duration }}-second single-character shot anchored by <Picture 1>. Preserve <Subject 1> while adding only one small controlled performance.
-
+{% if mode in ['free', 'reference_generation'] %}[reference generation] Generate one continuous {{ shot.duration }}-second single-character shot. Use the selected pictures for identity, appearance, and semantic reference only; design the opening composition and motion described below without forcing any picture to be a video frame.
+{% elif mode == 'last_frame' %}[keyframe completion] Generate one continuous {{ shot.duration }}-second shot that resolves to <Picture 1> as the final frame while preserving <Subject 1>.
+{% elif mode in ['keyframe', 'storyboard'] %}[keyframe completion] Generate one continuous {{ shot.duration }}-second shot using the selected picture references at the explicitly described keyframe or storyboard moments.
+{% else %}[keyframe completion] Generate one continuous {{ shot.duration }}-second single-character shot beginning from <Picture 1>. Preserve <Subject 1> while adding the controlled performance described below.
+{% endif %}
 retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - preserve identity, face, eyes, hair, clothing, proportions, colors, and linework.
-{% for reference in references %}{{ reference.picture_label }} ({{ reference.role }} for [Shot 1]): fully_preserved - keep its semantic role consistent throughout the shot.
-{% endfor %}<Subject 2> (appears in [Shot 1]): fully_preserved - keep the background unchanged.
+<Subject 1> (appears throughout [Shot 1]): fully_preserved - preserve identity, face, eyes, hair, clothing, proportions, colors, and linework.
+{% for reference in references %}<{{ reference.picture_label }}> ({{ reference.role }} for [Shot 1]): fully_preserved - keep its semantic role consistent throughout the shot.
+{% endfor %}<Subject 2> (appears throughout [Shot 1]): fully_preserved - keep the background unchanged.
 
 detailed_description:
-The shot begins from <Picture 1>. The camera uses a {{ shot.camera.speed }} {{ shot.camera.amplitude }} {{ shot.camera.type }}. {{ shot.action.description }} Keep the character's identity, face, eyes, hair, clothing, and body proportions stable. No scene cut, no camera orbit, no extra characters, no exposure, no adult content, no props, no complex scenery, no subtitles, no visible text, and no watermark. <Subject 2> remains unchanged throughout.
+{% if shot.get('opening') %}Opening state: {{ shot.opening.get('description', '') }}{% if shot.opening.get('framing') %} Framing: {{ shot.opening.get('framing') }}.{% endif %}{% if shot.opening.get('view') %} View: {{ shot.opening.get('view') }}.{% endif %}
+{% endif %}The camera uses a {{ shot.camera.speed }} {{ shot.camera.amplitude }} {{ shot.camera.type }}{% if shot.camera.get('framing') %} with {{ shot.camera.get('framing') }} framing{% endif %}.
+{% if shot.get('beats') %}Timeline:
+{% for beat in shot.beats %}{{ beat.start }}-{{ beat.end }}s: {{ beat.description }}
+{% endfor %}{% else %}Action: {{ shot.action.description }}
+{% endif %}{% if shot.get('ending') and shot.ending.get('description') %}Ending state: {{ shot.ending.get('description') }}
+{% endif %}{% if shot.get('constraints') %}Constraints: {{ shot.constraints | join('; ') }}.
+{% endif %}Keep the character's identity, face, eyes, hair, clothing, and body proportions stable. No scene cut, no camera orbit, no extra characters, no exposure, no adult content, no props, no complex scenery, no subtitles, no visible text, and no watermark. <Subject 2> remains unchanged throughout.
+{% if mode == 'first_frame' %}The shot begins from <Picture 1>.{% elif mode == 'last_frame' %}The shot ends at <Picture 1>.{% elif mode == 'keyframe' %}Treat only the explicitly described picture moment as a keyframe; do not force other pictures to be video frames.{% endif %}
 
 overall_soundscape:
 N/A. Do not generate dialogue, singing, effects, or environmental ambience.

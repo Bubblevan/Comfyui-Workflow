@@ -79,20 +79,60 @@ def compile_prompt(character: dict[str, Any], shot: dict[str, Any]) -> str:
     camera = shot["camera"]
     action = " ".join(str(shot["action"]["description"]).split())
     background = character["background_policy"]["description"]
-    subject_definitions = (
-        f"<Subject 1> is the {identity['gender']} {identity['style']} character defined jointly by the selected reference pictures. "
-        f"Preserve {features}, stable facial proportions, colors, and linework.\n"
-        f"{ref_definitions}\n"
-        f"<Subject 2> is {background} with no props, scenery, extra characters, particles, text, or watermark."
-    )
+    mode = shot.get("reference_mode", "first_frame")
+    free_mode = mode in {"free", "reference_generation", "storyboard"}
+    picture_list = ", ".join(f"<{ref['picture_label']}>" for ref in references)
+    if free_mode:
+        subject_definitions = (
+            f"<Subject 1> is the {identity['gender']} {identity['style']} character whose appearance is derived from {picture_list}. "
+            f"Preserve {features}, stable facial proportions, colors, and linework. The selected pictures are appearance references only and are not fixed video frames.\n"
+            f"{ref_definitions}\n"
+            f"<Subject 2> is {background} with no props, scenery, extra characters, particles, text, or watermark."
+        )
+    else:
+        subject_definitions = (
+            f"<Subject 1> is the {identity['gender']} {identity['style']} character defined jointly by the selected reference pictures. "
+            f"Preserve {features}, stable facial proportions, colors, and linework.\n"
+            f"{ref_definitions}\n"
+            f"<Subject 2> is {background} with no props, scenery, extra characters, particles, text, or watermark."
+        )
+    opening = shot.get("opening") or {}
+    opening_text = ""
+    if opening:
+        opening_text = f"Opening state: {opening.get('description', '')}"
+        if opening.get("framing"):
+            opening_text += f" Framing: {opening['framing']}."
+        if opening.get("view"):
+            opening_text += f" View: {opening['view']}."
+    beats = shot.get("beats") or []
+    timeline = "\n".join(f"{beat['start']}-{beat['end']}s: {beat['description']}" for beat in beats)
+    if not timeline:
+        timeline = f"Action: {action}"
+    ending = (shot.get("ending") or {}).get("description")
+    constraints = shot.get("constraints") or []
+    detailed = ". ".join(part.strip(". ") for part in [opening_text, f"The camera uses a {camera['speed']} {camera['amplitude']} {camera['type']}", f"Timeline:\n{timeline}" if beats else timeline, f"Ending state: {ending}" if ending else "", f"Constraints: {'; '.join(constraints)}" if constraints else ""] if part).strip() + ". Keep the character's identity, face, eyes, hair, clothing, and body proportions stable. No scene cut, no camera orbit, no extra characters, no exposure, no adult content, no props, no complex scenery, no subtitles, no visible text, and no watermark. <Subject 2> remains unchanged throughout."
+    if mode == "first_frame":
+        detailed += " The shot begins from <Picture 1>."
+    elif mode == "last_frame":
+        detailed += " The shot ends at <Picture 1>."
+    elif mode == "keyframe":
+        detailed += " Treat only the explicitly described picture moment as a keyframe; do not force other pictures to be video frames."
+    if free_mode:
+        summary = f"[reference generation] Generate one continuous {duration}-second single-character shot. Use the selected pictures for identity, appearance, and semantic reference only; design the opening composition and motion described below without forcing any picture to be a video frame."
+    elif mode == "last_frame":
+        summary = f"[keyframe completion] Generate one continuous {duration}-second shot that resolves to <Picture 1> as the final frame while preserving <Subject 1>."
+    elif mode == "keyframe":
+        summary = f"[keyframe completion] Generate one continuous {duration}-second shot using the selected picture references at the explicitly described keyframe moments."
+    else:
+        summary = f"[keyframe completion] Generate one continuous {duration}-second single-character shot beginning from <Picture 1>. Preserve <Subject 1> while adding the controlled performance described below."
     return "\n\n".join(
         [
             "subject_definitions:\n" + subject_definitions,
-            f"summary:\n[reference-to-video] Generate one continuous {duration}-second single-character shot anchored by <Picture 1>. Preserve <Subject 1> while adding only one small controlled performance.",
+            "summary:\n" + summary,
             "retention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - preserve identity, face, eyes, hair, clothing, proportions, colors, and linework.\n"
             + ref_retention
             + "\n<Subject 2> (appears in [Shot 1]): fully_preserved - keep the background unchanged.",
-            f"detailed_description:\nThe shot begins from <Picture 1>. The camera uses a {camera['speed']} {camera['amplitude']} {camera['type']}. {action} Keep the character's identity, face, eyes, hair, clothing, and body proportions stable. No scene cut, no camera orbit, no extra characters, no exposure, no adult content, no props, no complex scenery, no subtitles, no visible text, and no watermark. <Subject 2> remains unchanged throughout.",
+            "detailed_description:\n" + detailed,
             "overall_soundscape:\nN/A. Do not generate dialogue, singing, effects, or environmental ambience.",
             "non_diegetic_music:\nN/A. Treat the deliverable as silent.",
         ]

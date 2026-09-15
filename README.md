@@ -48,6 +48,27 @@ Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep
 
 `h3_prompt.py` 根据 character + shot manifest 编译官方 Ref2VA 六段结构：`subject_definitions`、`summary`、`retention_analysis`、`detailed_description`、`overall_soundscape`、`non_diegetic_music`。镜头通过 `references` 明确选择 1–9 张图，编译器按实际使用顺序生成 `Picture 1` 到 `Picture 9` 以及对应 semantic role，不会注入未使用的参考图。
 
+旧 shot 未填写 `reference_mode` 时保持兼容，默认使用 `first_frame`：`Picture 1` 作为开场帧锚点。需要让参考图只提供身份、服装、武器或画风，而由 H3 生成全新开场时，使用 `reference_mode: free`（或 `reference_generation`），并补充 `opening`、`beats`、`ending` 和 `constraints`；此模式不会写入“shot begins from Picture 1”。
+
+例如：
+
+```yaml
+reference_mode: free
+opening:
+  framing: medium_full
+  view: three_quarter_front
+  description: The character is already standing in a relaxed new pose.
+beats:
+  - start: 0.0
+    end: 2.0
+    description: She raises her weapon.
+  - start: 2.0
+    end: 5.0
+    description: She holds a stable ready stance.
+ending:
+  description: Stable three-quarter combat-ready pose.
+```
+
 ## 可复现与追踪
 
 每次生成都会创建 `runs/YYYY-MM-DD/<run_id>/run.json`，保存角色、镜头、参考图、prompt/workflow hash、seed、profile、model filenames、ComfyUI `prompt_id`、输出路径和耗时。ComfyUI 状态通过 `/history/<prompt_id>` 查询，支持 timeout 与 retry；不使用固定 sleep 判断完成。
@@ -57,3 +78,5 @@ Explore 默认约 0.5 MP / Turbo / 4 steps / 4 takes，并且串行提交；Keep
 抽帧先进入 `output/frames/pending/<run_id>/`。筛选包含 Laplacian sharpness、brightness/corruption、dHash/SSIM 去重，以及只作 advisory 的 reference similarity；同时写出 CSV 和 `output/qc/<run_id>/contact_sheet.jpg`。`accept`/`reject` 是显式人工操作，accepted frame 才会生成 sidecar，并标记 `source_type: h3_synthetic`。
 
 原始游戏素材应在独立数据流中标记为 `original_game`，不得与 synthetic frame 混淆。
+
+角色文件和参考图可以按游戏名组织为 `characters/<game>/<character>.yaml` 与 `assets/references/<game>/<character>/`；Harness 会递归发现并解析这层目录，不需要移动现有文件。

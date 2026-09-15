@@ -243,9 +243,18 @@ def resolve_reference_path(ref: dict[str, Any], character_path: Path, character_
     if character_parent:
         candidates.append(ROOT / "assets" / "references" / Path(*character_parent) / character_id / ref_path.name)
     candidates.extend((ROOT / "assets" / "references").glob(f"**/{ref_path.name}"))
+    existing = []
+    seen = set()
     for candidate in candidates:
-        if candidate.is_file():
-            return candidate
+        candidate = candidate.resolve()
+        if candidate.is_file() and candidate not in seen:
+            existing.append(candidate)
+            seen.add(candidate)
+    if len(existing) == 1:
+        return existing[0]
+    if len(existing) > 1:
+        paths = ", ".join(str(path.relative_to(ROOT)) for path in existing)
+        raise HarnessError(f"ambiguous reference image for {ref['file']}: {paths}; specify the exact manifest path")
     raise HarnessError(
         f"reference image missing: {declared}. Checked optional game-folder variants; "
         "update only the manifest file name if the actual asset is named differently."

@@ -42,6 +42,44 @@ def test_prompt_picture_mapping(count):
         assert f"Picture {count + 1}" not in prompt
 
 
+def test_free_reference_mode_uses_new_opening_and_beats():
+    character = character_with_refs(3)
+    shot = shot_for(character, 3)
+    shot.update({
+        "reference_mode": "free",
+        "opening": {"framing": "medium_full", "view": "three_quarter_front", "description": "The character is already standing in a new pose."},
+        "beats": [{"start": 0.0, "end": 2.0, "description": "She raises her weapon."}, {"start": 2.0, "end": 5.0, "description": "She holds a ready stance."}],
+        "ending": {"description": "Stable combat-ready pose."},
+        "constraints": ["exactly one character", "no scene cuts"],
+    })
+    prompt = compile_prompt(character, shot)
+    assert "[reference generation]" in prompt
+    assert "not fixed video frames" in prompt
+    assert "The shot begins from <Picture 1>" not in prompt
+    assert "three_quarter_front" in prompt
+    assert "0.0-2.0s" in prompt
+
+
+def test_nested_game_reference_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(h3, "ROOT", tmp_path)
+    character_path = tmp_path / "characters" / "brainwash-corruption-srpg" / "nun.yaml"
+    reference = tmp_path / "assets" / "references" / "brainwash-corruption-srpg" / "nun" / "nun_primary.png"
+    reference.parent.mkdir(parents=True)
+    reference.write_bytes(b"image")
+    resolved = h3.resolve_reference_path({"file": "assets/references/nun/nun_primary.png"}, character_path, "nun")
+    assert resolved == reference.resolve()
+
+
+def test_reference_basename_collision_fails(monkeypatch, tmp_path):
+    monkeypatch.setattr(h3, "ROOT", tmp_path)
+    for folder in ("game_a", "game_b"):
+        path = tmp_path / "assets" / "references" / folder / "same.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"image")
+    with pytest.raises(h3.HarnessError, match="ambiguous reference image"):
+        h3.resolve_reference_path({"file": "assets/references/character/same.png"}, tmp_path / "characters" / "character.yaml", "character")
+
+
 def test_workflow_contract_fail_fast():
     graph = json.loads((ROOT / "workflows" / "h3_ref2va_template_api.json").read_text(encoding="utf-8"))
     h3.validate_workflow_contract(graph)
