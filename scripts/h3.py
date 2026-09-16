@@ -91,7 +91,11 @@ def _scalar(value: str) -> Any:
         try:
             return json.loads(value)
         except json.JSONDecodeError:
-            pass
+            if value.startswith("[") and value.endswith("]"):
+                inner = value[1:-1].strip()
+                if not inner:
+                    return []
+                return [item.strip().strip("\"'") for item in inner.split(",")]
     if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
         return value[1:-1]
     try:

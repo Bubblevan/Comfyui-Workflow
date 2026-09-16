@@ -23,6 +23,10 @@ def test_nsfw_library_validates():
     assert nsfw_library.validate_workflow_registry() == 4
     assert nsfw_library.validate_action_import() == 654
     assert nsfw_library.validate_compiled_action_library() == 654
+    assert nsfw_library.validate_compiled_atom_library() == 654
+    audit = nsfw_library.load_action_audit()
+    assert audit["source"]["unique_exact_values"] == 651
+    assert audit["semantic"]["semantic_duplicate_extra"] > 0
 
 
 def test_action_content_is_transformed_to_h3_sections():
@@ -30,6 +34,45 @@ def test_action_content_is_transformed_to_h3_sections():
     assert "detailed_description:" in card["h3"]["prompt"]
     assert card["h3"]["prompt"] != card["source"]["raw_value"]
     assert card["shot_fragment"]["beats"][0]["description"]
+
+
+def test_action_atoms_are_dimensioned_and_keep_source_traceability():
+    atom = next(item for item in nsfw_library.load_compiled_atom_library() if item["label"] == "masturbation")
+    assert atom["source"]["raw_value"] == "1girl,masturbation"
+    assert atom["dimensions"]["action"] == ["action.self_directed_intimacy"]
+    assert "pose" in atom["semantic_fingerprint"]
+    assert "Generate one continuous 5-second H3 sequence" in atom["h3"]["prompt_fragment"]
+
+
+def test_policy_blocked_atoms_are_not_auto_candidates():
+    atom = next(item for item in nsfw_library.load_compiled_atom_library() if item["label"] == "rape")
+    assert atom["review"]["status"] == "blocked"
+    assert "non_consensual_source" in atom["review"]["flags"]
+
+
+def test_composer_enforces_visibility_and_temporal_exceptions():
+    base = ["effects.heart_highlight"]
+    with pytest.raises(nsfw_library.LibraryError, match="visibility rule"):
+        nsfw_library.compose_atoms(base)
+    composed = nsfw_library.compose_atoms(
+        [
+            "action.nonsexual_activity",
+            "interaction.solo_subject",
+            "pose.seated",
+            "expression.hypnosis_transition",
+            "camera.eye_detail",
+            "motion.gradual_transition",
+            "effects.loss_of_catchlights",
+            "effects.full_iris_glow",
+            "effects.concentric_rings",
+            "audio.silent",
+        ],
+        temporal=True,
+    )
+    assert composed["temporal"] is True
+    assert "concentric rings inside the iris" in composed["h3_prompt"]
+    with pytest.raises(nsfw_library.LibraryError, match="camera atom|conflicting atoms"):
+        nsfw_library.compose_atoms(["camera.eye_detail", "camera.full_body"])
 
 
 def test_nsfw_entries_are_adult_only_and_consensual():

@@ -20,6 +20,11 @@ WORKFLOW_REGISTRY_PATH = LIBRARY_ROOT / "workflows" / "registry.yaml"
 IMPORT_ROOT = LIBRARY_ROOT / "imports"
 IMPORT_REGISTRY_PATH = IMPORT_ROOT / "registry.yaml"
 COMPILED_ACTION_PATH = LIBRARY_ROOT / "compiled" / "action_cards_h3.json"
+ATOM_REGISTRY_PATH = LIBRARY_ROOT / "atoms" / "registry.yaml"
+ATOM_REGISTRY_SCHEMA_PATH = LIBRARY_ROOT / "schema" / "atom-registry.schema.json"
+COMPILED_ATOM_PATH = LIBRARY_ROOT / "compiled" / "action_atoms_h3.json"
+ACTION_AUDIT_PATH = LIBRARY_ROOT / "compiled" / "action_audit.json"
+ATOM_SCHEMA_PATH = LIBRARY_ROOT / "schema" / "action-atom.schema.json"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from h3 import HarnessError, load_document, validate_schema  # noqa: E402
@@ -210,6 +215,163 @@ def validate_compiled_action_library() -> int:
     return len(load_compiled_action_library())
 
 
+def load_atom_registry() -> dict[str, Any]:
+    """Load and validate the canonical dimension registry and composition rules."""
+    if not ATOM_REGISTRY_PATH.is_file():
+        raise LibraryError(f"missing atom registry: {_relative(ATOM_REGISTRY_PATH)}")
+    registry = load_document(ATOM_REGISTRY_PATH)
+    try:
+        validate_schema(registry, ATOM_REGISTRY_SCHEMA_PATH, "NSFW atom registry")
+    except HarnessError as exc:
+        raise LibraryError(str(exc)) from exc
+    dimensions = set(registry["dimension_order"])
+    definitions = registry["definitions"]
+    definition_ids = [str(item["id"]) for item in definitions]
+    if len(definition_ids) != len(set(definition_ids)):
+        raise LibraryError("atom registry contains duplicate definition ids")
+    for item in definitions:
+        if item["dimension"] not in dimensions:
+            raise LibraryError(f"atom definition uses unknown dimension: {item['id']}")
+        if not item["id"].startswith(f"{item['dimension']}."):
+            raise LibraryError(f"atom id does not match its dimension: {item['id']}")
+    known = set(definition_ids)
+    composition = registry["composition"]
+    for atom_id in composition["default_atoms"]:
+        if atom_id not in known:
+            raise LibraryError(f"composition default references unknown atom: {atom_id}")
+    for rule in composition["conflict_rules"]:
+        for atom_id in rule:
+            if atom_id not in known:
+                raise LibraryError(f"composition conflict references unknown atom: {atom_id}")
+    for rule in composition["visibility_rules"]:
+        for atom_id in rule["if"] + rule["require_any"]:
+            if atom_id not in known:
+                raise LibraryError(f"composition visibility rule references unknown atom: {atom_id}")
+    for rule in composition["transition_exceptions"]:
+        for atom_id in rule:
+            if atom_id not in known:
+                raise LibraryError(f"composition transition references unknown atom: {atom_id}")
+    for example in composition["examples"]:
+        for atom_id in example["atoms"]:
+            if atom_id not in known:
+                raise LibraryError(f"composition example references unknown atom: {atom_id}")
+    return registry
+
+
+def compose_atoms(atom_ids: list[str], temporal: bool = False) -> dict[str, Any]:
+    """Compose canonical atoms into an H3 fragment while enforcing registry rules."""
+    registry = load_atom_registry()
+    definitions = {str(item["id"]): item for item in registry["definitions"]}
+    selected = list(dict.fromkeys(atom_ids))
+    if not selected:
+        raise LibraryError("compose requires at least one atom id")
+    if len(selected) > int(registry["composition"]["max_atoms_per_shot"]):
+        raise LibraryError("composition exceeds max_atoms_per_shot")
+    unknown = sorted(set(selected) - set(definitions))
+    if unknown:
+        raise LibraryError(f"compose references unknown atom(s): {', '.join(unknown)}")
+
+    by_dimension: dict[str, list[str]] = {}
+    for atom_id in selected:
+        dimension = str(definitions[atom_id]["dimension"])
+        by_dimension.setdefault(dimension, []).append(atom_id)
+    one_of = set(registry["composition"]["one_of_dimensions"])
+    for dimension in sorted(one_of):
+        values = by_dimension.get(dimension, [])
+        if len(values) > 1:
+            raise LibraryError(f"compose allows only one {dimension} atom: {', '.join(values)}")
+
+    selected_set = set(selected)
+    transition_pairs = {frozenset(pair) for pair in registry["composition"]["transition_exceptions"]}
+    for pair in registry["composition"]["conflict_rules"]:
+        conflict = frozenset(pair)
+        if conflict.issubset(selected_set) and not (temporal and conflict in transition_pairs):
+            raise LibraryError(f"compose contains conflicting atoms: {pair[0]} + {pair[1]}")
+    for rule in registry["composition"]["visibility_rules"]:
+        if set(rule["if"]).issubset(selected_set) and not selected_set.intersection(rule["require_any"]):
+            required = ", ".join(rule["require_any"])
+            raise LibraryError(f"compose violates visibility rule; add one of: {required}")
+
+    ordered = []
+    for dimension in registry["dimension_order"]:
+        ordered.extend(by_dimension.get(dimension, []))
+    phrases = {str(item["id"]): str(item["h3_phrase"]) for item in registry["definitions"]}
+    prompt_parts = [
+        "Generate one continuous H3 sequence for clearly adult fictional subjects in an explicitly consensual context.",
+    ]
+    for atom_id in ordered:
+        prompt_parts.append(f"{definitions[atom_id]['dimension']}: {phrases[atom_id]}.")
+    prompt_parts.append(
+        "Preserve identity, anatomy, camera continuity, and reference semantics. "
+        "Do not introduce minors, real people, non-consensual activity, or sexual violence."
+    )
+    return {
+        "schema_version": 1,
+        "temporal": temporal,
+        "atoms": ordered,
+        "dimensions": by_dimension,
+        "h3_prompt": " ".join(prompt_parts),
+    }
+
+
+def load_compiled_atom_library() -> list[dict[str, Any]]:
+    """Load structured H3 atoms and verify source traceability and registry references."""
+    if not COMPILED_ATOM_PATH.is_file():
+        raise LibraryError(f"missing compiled atom library: {_relative(COMPILED_ATOM_PATH)}")
+    try:
+        atoms = json.loads(COMPILED_ATOM_PATH.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise LibraryError(f"compiled atom library is not valid JSON: {exc}") from exc
+    raw_actions = load_action_library()
+    registry = load_atom_registry()
+    known = {str(item["id"]) for item in registry["definitions"]}
+    if not isinstance(atoms, list) or len(atoms) != len(raw_actions):
+        raise LibraryError(f"compiled atom count mismatch: expected {len(raw_actions)}")
+    seen_labels: set[str] = set()
+    for atom in atoms:
+        if not isinstance(atom, dict) or not isinstance(atom.get("label"), str):
+            raise LibraryError("compiled atom is missing a string label")
+        label = atom["label"]
+        if label in seen_labels or label not in raw_actions:
+            raise LibraryError(f"compiled atom label is missing or duplicated: {label}")
+        seen_labels.add(label)
+        if atom.get("source", {}).get("raw_value") != raw_actions[label]:
+            raise LibraryError(f"compiled atom source mismatch: {label}")
+        try:
+            validate_schema(atom, ATOM_SCHEMA_PATH, f"NSFW action atom {label}")
+        except HarnessError as exc:
+            raise LibraryError(str(exc)) from exc
+        for dimension, values in atom["dimensions"].items():
+            for atom_id in values:
+                if atom_id not in known:
+                    raise LibraryError(f"{label} references unknown {dimension} atom: {atom_id}")
+        if not atom["semantic_fingerprint"]:
+            raise LibraryError(f"compiled atom has empty semantic fingerprint: {label}")
+    return atoms
+
+
+def validate_compiled_atom_library() -> int:
+    """Validate and return the number of structured H3 atom records."""
+    return len(load_compiled_atom_library())
+
+
+def load_action_audit() -> dict[str, Any]:
+    """Load the deterministic audit summary generated with the atom compiler."""
+    if not ACTION_AUDIT_PATH.is_file():
+        raise LibraryError(f"missing action audit: {_relative(ACTION_AUDIT_PATH)}")
+    try:
+        audit = json.loads(ACTION_AUDIT_PATH.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise LibraryError(f"action audit is not valid JSON: {exc}") from exc
+    source = audit.get("source") or {}
+    raw_actions = load_action_library()
+    if source.get("entry_count") != len(raw_actions):
+        raise LibraryError("action audit entry count is stale")
+    if source.get("unique_exact_values") != len(set(raw_actions.values())):
+        raise LibraryError("action audit exact-duplicate count is stale")
+    return audit
+
+
 def validate_library() -> tuple[int, int]:
     """Validate all cards and recipes; return (entry_count, recipe_count)."""
     if not CATALOG_PATH.is_file():
@@ -220,6 +382,8 @@ def validate_library() -> tuple[int, int]:
     validate_workflow_registry()
     validate_action_import()
     validate_compiled_action_library()
+    validate_compiled_atom_library()
+    load_action_audit()
 
     entries = _entry_by_id()
     catalog_entries = {item["id"]: item["path"] for item in catalog.get("entries", [])}
@@ -365,6 +529,51 @@ def cmd_action_show(args: argparse.Namespace) -> None:
         print(card["h3"]["prompt"])
 
 
+def cmd_atom_info(_: argparse.Namespace) -> None:
+    atoms = load_compiled_atom_library()
+    registry = load_atom_registry()
+    audit = load_action_audit()
+    print(f"valid: {len(atoms)} structured atom(s), {len(registry['definitions'])} canonical definition(s)")
+    print(json.dumps(audit["source"], ensure_ascii=False, indent=2))
+    print(json.dumps(audit["review_counts"], ensure_ascii=False, indent=2))
+
+
+def cmd_atom_list(args: argparse.Namespace) -> None:
+    atoms = load_compiled_atom_library()
+    for atom in atoms:
+        if args.dimension and not any(atom["dimensions"].get(args.dimension, [])):
+            continue
+        if args.review and atom["review"]["status"] != args.review:
+            continue
+        action = atom["dimensions"]["action"][0]
+        print(f"{atom['label']}\t{atom['review']['status']}\t{action}\t{atom['semantic_fingerprint']}")
+
+
+def cmd_atom_show(args: argparse.Namespace) -> None:
+    atoms = load_compiled_atom_library()
+    atom = next((item for item in atoms if item["label"] == args.name), None)
+    if atom is None:
+        raise LibraryError(f"atom not found with exact case-sensitive name: {args.name}")
+    if args.prompt:
+        print(atom["h3"]["prompt_fragment"])
+    else:
+        print(json.dumps(atom, ensure_ascii=False, indent=2))
+
+
+def cmd_compose(args: argparse.Namespace) -> None:
+    atom_ids = [item.strip() for item in args.atoms.split(",") if item.strip()]
+    result = compose_atoms(atom_ids, args.temporal)
+    if args.prompt:
+        print(result["h3_prompt"])
+    else:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def cmd_audit(_: argparse.Namespace) -> None:
+    audit = load_action_audit()
+    print(json.dumps(audit, ensure_ascii=False, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local MiniMax H3 NSFW prompt-card library")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -378,6 +587,21 @@ def build_parser() -> argparse.ArgumentParser:
     action_show.add_argument("name")
     action_show.add_argument("--raw", action="store_true", help="show the original source string instead of the H3 prompt")
     action_show.set_defaults(func=cmd_action_show)
+    sub.add_parser("atom-info").set_defaults(func=cmd_atom_info)
+    atom_list = sub.add_parser("atom-list")
+    atom_list.add_argument("--dimension", choices=["action", "interaction", "pose", "prop", "appearance", "expression", "physiology", "camera", "setting", "motion", "effects", "audio"])
+    atom_list.add_argument("--review", choices=["candidate", "manual_review", "blocked"])
+    atom_list.set_defaults(func=cmd_atom_list)
+    atom_show = sub.add_parser("atom-show")
+    atom_show.add_argument("name")
+    atom_show.add_argument("--prompt", action="store_true", help="show the H3 prompt fragment only")
+    atom_show.set_defaults(func=cmd_atom_show)
+    compose = sub.add_parser("compose")
+    compose.add_argument("--atoms", required=True, help="comma-separated canonical atom ids")
+    compose.add_argument("--temporal", action="store_true", help="allow registered sequential transition exceptions")
+    compose.add_argument("--prompt", action="store_true", help="show the H3 prompt only")
+    compose.set_defaults(func=cmd_compose)
+    sub.add_parser("audit").set_defaults(func=cmd_audit)
     list_parser = sub.add_parser("list")
     list_parser.add_argument("--category", choices=["effect", "pose", "camera", "motion"])
     list_parser.set_defaults(func=cmd_list)

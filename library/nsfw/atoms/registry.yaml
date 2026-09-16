@@ -1,0 +1,646 @@
+schema_version: 1
+registry_id: h3-nsfw-composition-atoms
+display_name: MiniMax H3 compositional atom registry
+purpose: >
+  Canonical, auditable dimensions for turning legacy prompt strings into H3 natural-language
+  fragments. The registry separates observable action, body arrangement, facial state, visual
+  effects, camera, setting, timeline, and audio so combinations remain inspectable.
+
+policy:
+  adult_only: true
+  fictional_only: true
+  consent_required: true
+  source_strings_are_evidence_not_approval: true
+  prohibited_contexts:
+    - minors_or_age_ambiguous_characters
+    - real_person_sexualization
+    - non_consensual_sexual_activity
+    - sexual_violence
+
+dimension_order:
+  - subject
+  - action
+  - interaction
+  - pose
+  - prop
+  - appearance
+  - expression
+  - physiology
+  - camera
+  - setting
+  - motion
+  - effects
+  - audio
+
+separation_rules:
+  action: Describes what is happening at a scene level.
+  interaction: Describes who or what is in contact, including solo, partner, group, and prop contact.
+  pose: Describes body arrangement and weight-bearing geometry; it does not imply an action.
+  expression: Describes face, gaze, mouth, and intentional affect.
+  physiology: Describes observable body response such as breathing, perspiration, saliva, or trembling.
+  effects: Describes stylized or supernatural visual transformations, not ordinary facial acting.
+  camera: Describes what the lens can actually reveal; it is a visibility constraint.
+  setting: Describes the spatial context and available surfaces or props.
+  motion: Describes temporal change, rhythm, and transitions.
+  audio: Describes silence, ambience, dialogue, or non-diegetic sound separately from visuals.
+
+definitions:
+  - id: action.partner_intimacy
+    dimension: action
+    title: Partner intimacy
+    h3_phrase: a clearly consensual intimate interaction between adult fictional characters
+    requires: [adult_only, explicit_consent, partner_subject]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+  - id: action.self_directed_intimacy
+    dimension: action
+    title: Self-directed intimacy
+    h3_phrase: a private, self-directed intimate action by an adult fictional subject
+    requires: [adult_only, explicit_consent]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+  - id: action.aftercare
+    dimension: action
+    title: Aftercare state
+    h3_phrase: a calm adult aftercare state following an explicitly consensual scene
+    requires: [adult_only, explicit_consent]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+  - id: action.nonsexual_activity
+    dimension: action
+    title: Nonsexual activity
+    h3_phrase: the described nonsexual activity performed by adult fictional subjects
+    requires: [adult_only]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+  - id: action.review_required
+    dimension: action
+    title: Review-only source
+    h3_phrase: a source scenario held for manual safety review and not auto-generated
+    requires: [manual_review]
+    excludes: [auto_generation]
+
+  - id: interaction.solo_subject
+    dimension: interaction
+    title: Solo subject
+    h3_phrase: one subject acting without a partner contact
+    requires: [one_primary_subject]
+    excludes: [interaction.partner_contact, interaction.group_contact]
+  - id: interaction.partner_contact
+    dimension: interaction
+    title: Partner contact
+    h3_phrase: readable contact with a consenting adult partner
+    requires: [partner_subject, explicit_consent]
+    excludes: [prohibited.non_consensual]
+  - id: interaction.group_contact
+    dimension: interaction
+    title: Group variant
+    h3_phrase: a multi-subject adult composition with every subject clearly adult and consenting
+    requires: [multiple_adult_subjects, explicit_consent]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+  - id: interaction.prop_contact
+    dimension: interaction
+    title: Prop contact
+    h3_phrase: contact with a clearly identified non-person prop kept visible in the frame
+    requires: [adult_only, prop_present]
+    excludes: [prohibited.non_consensual]
+  - id: interaction.restraint_roleplay
+    dimension: interaction
+    title: Consensual restraint roleplay
+    h3_phrase: a staged, explicitly consensual restraint-roleplay arrangement
+    requires: [adult_only, explicit_consent, manual_consent_review]
+    excludes: [prohibited.non_consensual, prohibited.sexual_violence]
+
+  - id: prop.soft_support
+    dimension: prop
+    title: Soft support prop
+    h3_phrase: a soft support prop such as a pillow, kept physically consistent in the frame
+    requires: [prop_present]
+    excludes: []
+  - id: prop.adult_toy
+    dimension: prop
+    title: Adult toy prop
+    h3_phrase: a non-person adult toy prop, shown only in an explicitly consensual adult fictional scene
+    requires: [adult_only, explicit_consent, prop_present]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+  - id: prop.household_object
+    dimension: prop
+    title: Household object prop
+    h3_phrase: a clearly identified household object used as a non-person scene prop
+    requires: [adult_only, explicit_consent, prop_present]
+    excludes: [prohibited.non_consensual]
+  - id: prop.scifi_machine
+    dimension: prop
+    title: Science-fiction machine
+    h3_phrase: a clearly fictional machine prop with stable geometry and no autonomous agency
+    requires: [fictional_setting, explicit_consent]
+    excludes: [prohibited.non_consensual, prohibited.sexual_violence]
+  - id: prop.fantasy_appendage
+    dimension: prop
+    title: Fantasy appendage
+    h3_phrase: a clearly fictional fantasy appendage treated as a visual prop, not a real person
+    requires: [fictional_setting, explicit_consent]
+    excludes: [prohibited.non_consensual]
+  - id: prop.surface
+    dimension: prop
+    title: Support surface
+    h3_phrase: a visible desk, table, or chair used as a stable support surface
+    requires: [supporting_surface]
+    excludes: []
+
+  - id: appearance.body_detail
+    dimension: appearance
+    title: Body detail
+    h3_phrase: the requested adult body detail, shown only when the framing makes it legible
+    requires: [adult_only, appropriate_framing]
+    excludes: [prohibited.age_ambiguous]
+  - id: appearance.nudity_state
+    dimension: appearance
+    title: Nudity state
+    h3_phrase: the requested adult nudity state, kept consistent with the reference and scene
+    requires: [adult_only, explicit_consent]
+    excludes: [prohibited.age_ambiguous, prohibited.non_consensual]
+  - id: appearance.clothing
+    dimension: appearance
+    title: Clothing
+    h3_phrase: the specified clothing and fabric behavior, preserved across the shot
+    requires: [identity_preservation]
+    excludes: []
+  - id: appearance.hair_or_identity
+    dimension: appearance
+    title: Hair or identity detail
+    h3_phrase: the specified hair or identity detail, preserved without spontaneous redesign
+    requires: [identity_preservation]
+    excludes: []
+
+  - id: pose.lying_back
+    dimension: pose
+    title: Lying on back
+    h3_phrase: lying on the back with the torso supported by the surface
+    requires: [readable_surface]
+    excludes: [pose.all_fours]
+  - id: pose.lying_stomach
+    dimension: pose
+    title: Lying on stomach
+    h3_phrase: lying on the stomach with the front of the torso supported by the surface
+    requires: [readable_surface]
+    excludes: [pose.standing]
+  - id: pose.seated
+    dimension: pose
+    title: Seated
+    h3_phrase: seated with the pelvis and supporting surface clearly readable
+    requires: [readable_surface]
+    excludes: [pose.standing]
+  - id: pose.kneeling
+    dimension: pose
+    title: Kneeling
+    h3_phrase: kneeling with the lower-body contact points kept stable
+    requires: [ground_or_surface]
+    excludes: [pose.standing]
+  - id: pose.standing
+    dimension: pose
+    title: Standing
+    h3_phrase: standing with balanced weight distribution
+    requires: [ground_or_surface]
+    excludes: [pose.lying_back, pose.lying_stomach]
+  - id: pose.all_fours
+    dimension: pose
+    title: All fours
+    h3_phrase: supported on hands and knees with the spine and limb contacts readable
+    requires: [ground_or_surface]
+    excludes: [pose.standing]
+  - id: pose.straddling
+    dimension: pose
+    title: Straddling
+    h3_phrase: straddling the indicated surface or consenting adult partner
+    requires: [supporting_surface_or_partner]
+    excludes: [pose.lying_stomach]
+  - id: pose.legs_raised
+    dimension: pose
+    title: Raised legs
+    h3_phrase: one or both legs raised with joints and balance kept anatomically readable
+    requires: [readable_limb_visibility]
+    excludes: []
+  - id: pose.arms_behind
+    dimension: pose
+    title: Arms behind
+    h3_phrase: the arms placed behind the torso while preserving shoulder and elbow continuity
+    requires: [readable_upper_body]
+    excludes: []
+  - id: pose.leaning_support
+    dimension: pose
+    title: Leaning support
+    h3_phrase: leaning against a clearly visible wall, desk, or other support
+    requires: [supporting_surface]
+    excludes: []
+  - id: pose.unspecified
+    dimension: pose
+    title: Unspecified pose
+    h3_phrase: the source pose as provided, held stable until a more specific pose is confirmed
+    requires: [manual_pose_review]
+    excludes: []
+
+  - id: expression.neutral_composed
+    dimension: expression
+    title: Neutral composed
+    h3_phrase: a calm, composed neutral expression
+    requires: [face_visible]
+    excludes: [expression.ahegao, expression.rolling_eyes, expression.dazed_vacant]
+  - id: expression.anticipatory_smile
+    dimension: expression
+    title: Anticipatory smile
+    h3_phrase: a small anticipatory smile with relaxed cheeks
+    requires: [face_visible]
+    excludes: [expression.neutral_composed]
+  - id: expression.embarrassed_blush
+    dimension: expression
+    title: Embarrassed blush
+    h3_phrase: a warm embarrassed blush with averted or shy eye contact
+    requires: [face_visible]
+    excludes: [expression.neutral_composed]
+  - id: expression.focused_eye_contact
+    dimension: expression
+    title: Focused eye contact
+    h3_phrase: focused eye contact directed toward the camera or the indicated partner
+    requires: [eyes_visible]
+    excludes: [expression.dazed_vacant]
+  - id: expression.open_mouth_breathing
+    dimension: expression
+    title: Open-mouth breathing
+    h3_phrase: slightly open mouth synchronized with visible breathing
+    requires: [face_visible, motion.breathing]
+    excludes: [expression.closed_mouth]
+  - id: expression.closed_mouth
+    dimension: expression
+    title: Closed mouth
+    h3_phrase: a relaxed closed-mouth expression
+    requires: [face_visible]
+    excludes: [expression.open_mouth_breathing]
+  - id: expression.intense
+    dimension: expression
+    title: Intense expression
+    h3_phrase: an intense, concentrated facial expression with deliberate gaze
+    requires: [face_visible]
+    excludes: [expression.neutral_composed]
+  - id: expression.dazed_vacant
+    dimension: expression
+    title: Dazed vacant gaze
+    h3_phrase: a dazed vacant gaze with reduced facial tension
+    requires: [face_visible]
+    excludes: [expression.focused_eye_contact]
+  - id: expression.hypnosis_transition
+    dimension: expression
+    title: Hypnosis transition
+    h3_phrase: a gradual change from alert eye contact to a dazed vacant gaze
+    requires: [eyes_visible, motion.gradual_transition]
+    excludes: []
+  - id: expression.pleasure_overwhelmed
+    dimension: expression
+    title: Overwhelmed affect
+    h3_phrase: an overwhelmed adult expression communicated through softened focus and facial tension
+    requires: [face_visible, explicit_consent]
+    excludes: [prohibited.non_consensual]
+  - id: expression.aftercare_relaxed
+    dimension: expression
+    title: Relaxed aftercare
+    h3_phrase: a relaxed, relieved expression after the scene has settled
+    requires: [face_visible, action.aftercare]
+    excludes: [expression.intense]
+  - id: expression.cat_mouth
+    dimension: expression
+    title: Cat mouth
+    h3_phrase: a playful small cat-mouth smile
+    requires: [face_visible]
+    excludes: [expression.neutral_composed]
+  - id: expression.pout
+    dimension: expression
+    title: Pout
+    h3_phrase: a small pout with gently pushed-forward lips
+    requires: [face_visible]
+    excludes: [expression.neutral_composed]
+  - id: expression.tsundere_defiant
+    dimension: expression
+    title: Defiant fluster
+    h3_phrase: a flustered, defiant expression with averted gaze
+    requires: [face_visible]
+    excludes: [expression.neutral_composed]
+  - id: expression.tongue_out
+    dimension: expression
+    title: Tongue out
+    h3_phrase: the tongue briefly extended as a playful facial cue
+    requires: [face_visible, mouth_visible]
+    excludes: []
+  - id: expression.rolling_eyes
+    dimension: expression
+    title: Rolling eyes
+    h3_phrase: eyes rolled upward while the iris color remains consistent
+    requires: [eyes_visible, camera.eye_detail]
+    excludes: [expression.focused_eye_contact]
+  - id: expression.ahegao
+    dimension: expression
+    title: Exaggerated ecstatic anime expression
+    h3_phrase: an exaggerated ecstatic anime-style expression, kept clearly fictional and adult-only
+    requires: [face_visible, explicit_consent]
+    excludes: [expression.neutral_composed]
+
+  - id: physiology.breathing
+    dimension: physiology
+    title: Breathing
+    h3_phrase: subtle rhythmic breathing visible in the shoulders, chest, or mouth
+    requires: [upper_body_or_face_visible]
+    excludes: []
+  - id: physiology.saliva
+    dimension: physiology
+    title: Saliva cue
+    h3_phrase: a restrained visible saliva cue consistent with the mouth movement
+    requires: [mouth_visible, explicit_consent]
+    excludes: []
+  - id: physiology.perspiration
+    dimension: physiology
+    title: Perspiration
+    h3_phrase: small beads of perspiration that follow the motion and lighting
+    requires: [skin_or_face_visible]
+    excludes: []
+  - id: physiology.trembling
+    dimension: physiology
+    title: Trembling
+    h3_phrase: subtle controlled trembling in the indicated limbs or shoulders
+    requires: [limb_or_upper_body_visible]
+    excludes: []
+  - id: physiology.arousal_response
+    dimension: physiology
+    title: Arousal response
+    h3_phrase: a restrained adult physiological response that follows the scene motion
+    requires: [adult_only, explicit_consent, relevant_body_area_visible]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+  - id: physiology.fluid_cue
+    dimension: physiology
+    title: Fluid cue
+    h3_phrase: a restrained fluid cue that remains continuous with the preceding motion and lighting
+    requires: [adult_only, explicit_consent, visible_source]
+    excludes: [prohibited.non_consensual, prohibited.age_ambiguous]
+
+  - id: camera.eye_detail
+    dimension: camera
+    title: Eye detail close-up
+    h3_phrase: a close-up that makes the eyes and iris detail legible
+    requires: [face_visible]
+    excludes: [camera.full_body]
+  - id: camera.face_closeup
+    dimension: camera
+    title: Face close-up
+    h3_phrase: a face close-up that prioritizes mouth, eyes, and cheek movement
+    requires: [face_visible]
+    excludes: [camera.full_body]
+  - id: camera.medium
+    dimension: camera
+    title: Medium framing
+    h3_phrase: a stable medium framing that preserves face and upper-body context
+    requires: [face_visible, upper_body_visible]
+    excludes: []
+  - id: camera.full_body
+    dimension: camera
+    title: Full-body framing
+    h3_phrase: a full-body framing that keeps the complete pose and support surface visible
+    requires: [full_pose_visible]
+    excludes: [camera.eye_detail]
+  - id: camera.pov
+    dimension: camera
+    title: Point of view
+    h3_phrase: a point-of-view camera relationship with stable subject orientation
+    requires: [stable_camera_relation]
+    excludes: []
+  - id: camera.high_angle
+    dimension: camera
+    title: High angle
+    h3_phrase: a high-angle view with readable ground-plane relationships
+    requires: [ground_plane_visible]
+    excludes: []
+  - id: camera.low_angle
+    dimension: camera
+    title: Low angle
+    h3_phrase: a low-angle view with stable vertical perspective
+    requires: [stable_vertical_reference]
+    excludes: []
+  - id: camera.side_view
+    dimension: camera
+    title: Side view
+    h3_phrase: a side view that clarifies contact, profile, and direction of movement
+    requires: [profile_readable]
+    excludes: []
+  - id: camera.looking_at_viewer
+    dimension: camera
+    title: Looking at viewer
+    h3_phrase: intentional eye contact directed at the camera
+    requires: [eyes_visible]
+    excludes: [expression.dazed_vacant]
+  - id: camera.oblique
+    dimension: camera
+    title: Oblique angle
+    h3_phrase: a restrained oblique camera angle that does not destabilize the subject geometry
+    requires: [stable_camera_relation]
+    excludes: []
+
+  - id: setting.bedroom
+    dimension: setting
+    title: Bedroom
+    h3_phrase: a private bedroom with a stable bed or soft surface
+    requires: [private_setting]
+    excludes: []
+  - id: setting.bathroom
+    dimension: setting
+    title: Bathroom
+    h3_phrase: a private bathroom with readable wet-surface reflections
+    requires: [private_setting]
+    excludes: []
+  - id: setting.desk_or_table
+    dimension: setting
+    title: Desk or table
+    h3_phrase: a clearly visible desk or table used as a stable support
+    requires: [supporting_surface]
+    excludes: []
+  - id: setting.staged_public
+    dimension: setting
+    title: Staged public setting
+    h3_phrase: a fictional staged public setting with no identifiable real people
+    requires: [adult_only, explicit_consent, fictional_setting]
+    excludes: [real_person_context, prohibited.non_consensual]
+  - id: setting.laboratory_fantasy
+    dimension: setting
+    title: Science-fiction laboratory
+    h3_phrase: a clearly fictional science-fiction laboratory
+    requires: [fictional_setting]
+    excludes: []
+  - id: setting.indoors
+    dimension: setting
+    title: Generic indoor setting
+    h3_phrase: a generic indoor setting with stable background geometry
+    requires: [indoor_setting]
+    excludes: []
+  - id: setting.vehicle
+    dimension: setting
+    title: Vehicle interior
+    h3_phrase: a fictional vehicle interior with stable seating and window references
+    requires: [fictional_setting]
+    excludes: []
+  - id: setting.outdoor_scene
+    dimension: setting
+    title: Outdoor scene
+    h3_phrase: a fictional outdoor scene with stable ground and background references
+    requires: [fictional_setting]
+    excludes: []
+
+  - id: motion.static_hold
+    dimension: motion
+    title: Static readable hold
+    h3_phrase: a stable pose held long enough for the model to preserve anatomy and identity
+    requires: [stable_pose]
+    excludes: []
+  - id: motion.continuous_rhythm
+    dimension: motion
+    title: Continuous rhythm
+    h3_phrase: a continuous, readable rhythm with no abrupt scene cut
+    requires: [single_shot]
+    excludes: []
+  - id: motion.breathing
+    dimension: motion
+    title: Breathing motion
+    h3_phrase: gentle breathing motion synchronized across shoulders, chest, and mouth
+    requires: [upper_body_visible]
+    excludes: []
+  - id: motion.gradual_transition
+    dimension: motion
+    title: Gradual transition
+    h3_phrase: a gradual transition between the specified start and end facial states
+    requires: [single_shot, start_and_end_states]
+    excludes: []
+  - id: motion.camera_push_in
+    dimension: motion
+    title: Slow push-in
+    h3_phrase: a small, slow camera push-in that never loses the selected subject
+    requires: [stable_camera_relation]
+    excludes: []
+  - id: motion.aftercare_settle
+    dimension: motion
+    title: Aftercare settle
+    h3_phrase: movement gradually settles into a calm aftercare hold
+    requires: [action.aftercare]
+    excludes: []
+
+  - id: effects.loss_of_catchlights
+    dimension: effects
+    title: Loss of catchlights
+    h3_phrase: the catchlights fade while the natural iris color remains unchanged
+    requires: [eyes_visible, camera.eye_detail]
+    excludes: [effects.full_iris_glow]
+  - id: effects.full_iris_glow
+    dimension: effects
+    title: Pink or purple iris glow
+    h3_phrase: a restrained pink or purple iris glow, either solid or softly graded
+    requires: [eyes_visible, camera.eye_detail]
+    excludes: [effects.loss_of_catchlights]
+  - id: effects.concentric_rings
+    dimension: effects
+    title: Limited concentric iris rings
+    h3_phrase: a small number of classic concentric rings inside the iris, never over-dense
+    requires: [eyes_visible, camera.eye_detail]
+    excludes: []
+  - id: effects.heart_highlight
+    dimension: effects
+    title: Small heart highlight
+    h3_phrase: one small heart-shaped highlight inside the visible iris
+    requires: [eyes_visible, camera.eye_detail]
+    excludes: []
+  - id: effects.steam_or_haze
+    dimension: effects
+    title: Steam or haze
+    h3_phrase: restrained steam or atmospheric haze that follows the lighting and setting
+    requires: [setting_or_light_source]
+    excludes: []
+  - id: effects.motion_lines
+    dimension: effects
+    title: Motion lines
+    h3_phrase: sparse stylized motion lines used only to reinforce the intended movement
+    requires: [motion_present]
+    excludes: []
+
+  - id: audio.silent
+    dimension: audio
+    title: Silent
+    h3_phrase: no generated dialogue, music, or extra ambience
+    requires: []
+    excludes: [audio.dialogue, audio.ambience]
+  - id: audio.ambience
+    dimension: audio
+    title: Diegetic ambience
+    h3_phrase: restrained diegetic ambience matching the fictional setting
+    requires: [setting_present]
+    excludes: [audio.silent]
+  - id: audio.dialogue
+    dimension: audio
+    title: Dialogue
+    h3_phrase: optional short consent-safe dialogue with a specified speaker and timing
+    requires: [speaker_and_text]
+    excludes: [audio.silent]
+
+composition:
+  default_atoms:
+    - action.nonsexual_activity
+    - interaction.solo_subject
+    - pose.seated
+    - expression.neutral_composed
+    - camera.medium
+    - motion.static_hold
+    - audio.silent
+  max_atoms_per_shot: 12
+  one_of_dimensions:
+    - action
+    - interaction
+    - pose
+    - expression
+    - camera
+    - setting
+    - motion
+    - audio
+  repeatable_dimensions:
+    - effects
+    - physiology
+    - prop
+  examples:
+    - id: composition.hypnosis_eye_transition
+      source_recipe: recipes/hypnosis_eye_transition.yaml
+      atoms:
+        - action.nonsexual_activity
+        - interaction.solo_subject
+        - pose.seated
+        - expression.hypnosis_transition
+        - camera.eye_detail
+        - motion.gradual_transition
+        - effects.loss_of_catchlights
+        - effects.full_iris_glow
+        - effects.concentric_rings
+        - audio.silent
+      temporal_notes: >
+        The eye effects are sequential beats: catchlights fade first, iris tint and limited rings
+        emerge later. They are not simultaneous static conflicts.
+  transition_exceptions:
+    - [effects.loss_of_catchlights, effects.full_iris_glow]
+    - [effects.full_iris_glow, effects.concentric_rings]
+  conflict_rules:
+    - [expression.neutral_composed, expression.ahegao]
+    - [expression.focused_eye_contact, expression.dazed_vacant]
+    - [camera.eye_detail, camera.full_body]
+    - [effects.loss_of_catchlights, effects.full_iris_glow]
+    - [audio.silent, audio.dialogue]
+    - [audio.silent, audio.ambience]
+  visibility_rules:
+    - if: [effects.loss_of_catchlights]
+      require_any: [camera.eye_detail, camera.face_closeup]
+    - if: [effects.full_iris_glow]
+      require_any: [camera.eye_detail, camera.face_closeup]
+    - if: [effects.concentric_rings]
+      require_any: [camera.eye_detail, camera.face_closeup]
+    - if: [effects.heart_highlight]
+      require_any: [camera.eye_detail, camera.face_closeup]
+    - if: [expression.rolling_eyes]
+      require_any: [camera.eye_detail, camera.face_closeup, camera.medium]
+    - if: [expression.focused_eye_contact]
+      require_any: [camera.eye_detail, camera.face_closeup, camera.medium]
+    - if: [pose.lying_back, pose.lying_stomach, pose.all_fours]
+      require_any: [camera.full_body, camera.medium]

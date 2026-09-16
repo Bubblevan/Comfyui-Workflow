@@ -20,6 +20,9 @@ library/nsfw/
   catalog.yaml                         # 入口、策略、条目索引
   sources.yaml                         # 调研来源与使用备注
   schema/entry.schema.json             # prompt card schema
+  schema/action-atom.schema.json       # compiled source-atom schema
+  schema/atom-registry.schema.json     # canonical registry schema
+  atoms/registry.yaml                  # dimensions, phrases, and composition constraints
   entries/
     effects/                           # 可观察的状态变化
     poses/                             # 构图/姿态卡
@@ -34,6 +37,8 @@ library/nsfw/
     registry.yaml                       # 迁移文件 hash 与条目数
   compiled/
     action_cards_h3.json                # 654 张转换后的 H3 prompt cards
+    action_atoms_h3.json                # 654 条按维度拆分的 H3 原子记录
+    action_audit.json                   # 重复、残余 tag、风险复核统计
 ```
 
 ## 用法
@@ -44,6 +49,15 @@ python scripts/nsfw_library.py validate
 
 # 从 imports/action.json 重建 H3 action cards
 python scripts/compile_action_library.py
+
+# 从原始记录重建 compositional atoms 和审计报告
+python scripts/analyze_action_library.py
+
+# 查看原子库统计和按维度筛选
+python scripts/nsfw_library.py atom-info
+python scripts/nsfw_library.py atom-list --dimension expression
+python scripts/nsfw_library.py atom-list --review blocked
+python scripts/nsfw_library.py compose --atoms action.nonsexual_activity,interaction.solo_subject,pose.seated,expression.hypnosis_transition,camera.eye_detail,motion.gradual_transition,effects.loss_of_catchlights,effects.full_iris_glow,effects.concentric_rings,audio.silent --temporal --prompt
 
 # 列出本地条目
 python scripts/nsfw_library.py list
@@ -64,6 +78,25 @@ python scripts/h3.py prompt shots/nun/shot04_hypnosis_eye_transition.yaml
 条目用自然语言和时间轴描述可观察结果，不使用没有时间语义的 tag soup。一个条目只测一个
 主要变量，例如“高光消失”或“虹膜出现同心环”，避免同时混入 reference 偏置、姿态变化和
 成人动作，方便 A/B 与失败归因。
+
+`atoms/registry.yaml` 是组合层的主干。当前维度顺序是 `subject -> action -> interaction ->
+pose -> prop -> appearance -> expression -> physiology -> camera -> setting -> motion -> effects ->
+audio`。其中 `expression` 只描述脸、眼、嘴和意图性情绪；`physiology` 描述呼吸、出汗、唾液、
+颤抖等身体反应；`effects` 描述高光消失、虹膜发光、有限同心环、爱心高光等风格化/超自然视觉
+变化。这样可以避免把“rolling eyes”同时当作表情和特效，也能用 camera 可见性规则约束眼部细节
+不要在全身镜头里凭空出现。
+
+眼部 hypnosis transition 已作为组合示例登记：`loss_of_catchlights -> full_iris_glow ->
+concentric_rings` 是时间轴上的先后变化，不是同一静态 beat 的冲突叠加；`transition_exceptions`
+专门记录这种情况。这个规则也解释了为什么“表情”和“特效”不能只靠一个扁平 tag 表示。
+
+`compiled/action_atoms_h3.json` 是来源字典的结构化注入层：每条记录保留原始字符串，同时给出
+canonical dimensions、H3 natural-language fragment、semantic fingerprint 和复核状态。它不把
+来源字符串自动视为批准内容：`blocked` 不得自动运行，`manual_review` 必须先人工确认，只有
+明确成年、虚构、同意的场景才进入实际生成。
+
+审计中的 semantic duplicate group 只是复核队列，不是强制删除或断言等价。因为同一 fingerprint
+可能仍有不同的构图意图，只有人工确认后才应将多个来源折叠为一个 canonical atom。
 
 `recipes/` 是最终 shot 的组合层。v1 只提供显式 recipe，不自动把多个条目的 beats 粗暴拼接，
 因为不同卡的时间轴可能冲突。确认一个组合稳定后，再把它固化为 recipe 并记录实验结果。
@@ -107,6 +140,6 @@ runtime:
 ```
 
 不写 `runtime` 时使用已合入主干的 H3 默认值：`match` reference-size、`euler + simple`、
-`MiniMaxH3SigmaShift(12/3)` 和 Comfy Kitchen attention。`runtime` 现在是覆盖层，而不是
-主流程的能力开关；`sage` 与 `cache` 仍需显式指定，因为它们在参考 workflow 中是 bypass 的
-实验路径，且需要用固定 seed 做质量/稳定性 A/B。
+`MiniMaxH3SigmaShift(12/3)`、Comfy Kitchen attention 和 TeaCache approximation。`runtime`
+现在是覆盖层；只有明确写 `approximation.method: none` 才回到 keep 基线。Sage、Spectrum、
+Speed Cache、FastPath 仍保留为可复现实验路径，并且必须用固定 seed 做质量/稳定性 A/B。

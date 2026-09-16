@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bubblevan.local/h3/nsfw-action-atom.schema.json",
+  "title": "Compiled H3 action atom",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "label",
+    "label_family",
+    "source",
+    "normalized_tags",
+    "unmapped_tags",
+    "source_noise_tags",
+    "subject",
+    "dimensions",
+    "review",
+    "semantic_fingerprint",
+    "h3"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "id": {"type": "string", "pattern": "^isekai\\.atom\\.[a-z0-9][a-z0-9_]*$"},
+    "label": {"type": "string", "minLength": 1},
+    "label_family": {"type": "string", "minLength": 1},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "raw_value", "raw_tags"],
+      "properties": {
+        "file": {"type": "string", "const": "imports/action.json"},
+        "raw_value": {"type": "string"},
+        "raw_tags": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "normalized_tags": {"type": "array", "items": {"type": "string"}},
+    "unmapped_tags": {"type": "array", "items": {"type": "string"}},
+    "source_noise_tags": {"type": "array", "items": {"type": "string"}},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["female_count", "male_count", "other_count", "explicit_subject_count", "group_variant", "partner_variant", "role"],
+      "properties": {
+        "female_count": {"type": "integer", "minimum": 0},
+        "male_count": {"type": "integer", "minimum": 0},
+        "other_count": {"type": "integer", "minimum": 0},
+        "explicit_subject_count": {"type": "boolean"},
+        "group_variant": {"type": "boolean"},
+        "partner_variant": {"type": "boolean"},
+        "role": {"type": "string", "minLength": 1}
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "interaction", "pose", "prop", "appearance", "expression", "physiology", "camera", "setting", "motion", "effects", "audio"],
+      "properties": {
+        "action": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "interaction": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "pose": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "prop": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "appearance": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "expression": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "physiology": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "camera": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "setting": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "motion": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "effects": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "audio": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "flags"],
+      "properties": {
+        "status": {"type": "string", "enum": ["candidate", "manual_review", "blocked"]},
+        "flags": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "semantic_fingerprint": {"type": "string", "minLength": 1},
+    "h3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt_fragment"],
+      "properties": {
+        "prompt_fragment": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

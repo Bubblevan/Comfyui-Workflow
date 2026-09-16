@@ -2,7 +2,7 @@ schema_version: 1
 library_id: h3-nsfw-local
 display_name: Local NSFW prompt cards for MiniMax H3 Ref2VA
 purpose: >
-  A local, auditable library of reusable adult-only prompt cards and explicit H3 shot recipes.
+  A local, auditable library of reusable adult-only prompt cards, compositional atoms, and H3 shot recipes.
 
 policy:
   adult_only: true
@@ -19,6 +19,21 @@ categories:
   - poses
   - camera
   - motion
+
+atom_dimensions:
+  - subject
+  - action
+  - interaction
+  - pose
+  - prop
+  - appearance
+  - expression
+  - physiology
+  - camera
+  - setting
+  - motion
+  - effects
+  - audio
 
 entries:
   - id: effect.hypnosis.loss_of_catchlights
@@ -42,3 +57,8 @@ imports:
   - id: isekai.action
     path: imports/action.json
     registry: imports/registry.yaml
+
+atoms:
+  registry: atoms/registry.yaml
+  compiled: compiled/action_atoms_h3.json
+  audit: compiled/action_audit.json
